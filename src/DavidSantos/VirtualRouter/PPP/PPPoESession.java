@@ -32,7 +32,7 @@ public class PPPoESession {
         this.session_Id = session_Id;
         this.length = length;
         int counter = 0;
-        this.protocol = PPPProtocol_Ids.getTypeName((short) (payload[counter++] << 8 | payload[counter++]));
+        this.protocol = PPPProtocol_Ids.getTypeName((short) (payload[counter++] << 8 | payload[counter++]) & 0xFFFF);
         
         switch (protocol) {
             case LCP:

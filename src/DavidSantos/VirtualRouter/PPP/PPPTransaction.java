@@ -8,6 +8,9 @@ package DavidSantos.VirtualRouter.PPP;
 import DavidSantos.VirtualRouter.EthernetTypes;
 import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
 import DavidSantos.VirtualRouter.MACAddress;
+import DavidSantos.VirtualRouter.PPP.LCP.LCPCodes;
+import DavidSantos.VirtualRouter.PPP.LCP.LCPOptions;
+import DavidSantos.VirtualRouter.PPP.LCP.LCPPacket;
 import DavidSantos.VirtualRouter.RouterInterface;
 import java.util.Arrays;
 import java.util.Random;
@@ -41,12 +44,53 @@ public class PPPTransaction {
 
     }
 
-    public void onReceive_Session_St(PPPoEDiscovery session) {
-
+    public void onReceive_Session_St(PPPoESession session) {
+        System.out.println("PPPoESession New packet;");
+        
+        switch(session.getLCPPayload().getCode()){
+            case Configure_Rq:
+                //MUST transmit a Configure-Reject.
+                break;
+            case Configure_Ack:
+                
+                break;
+            case Configure_Nak:
+                
+                break;
+            case Configure_Rej:
+                
+                break;
+            case Terminate_Rq:
+                
+                break;
+            case Terminate_Ack:
+                
+                break;
+            case Code_Rej:
+                
+                break;
+            case Protocol_Rej:
+                
+                break;
+            case Echo_Rq:
+                
+                break;
+            case Echo_Reply:
+                
+                break;
+            case Discard_Rq:
+                
+                break;
+            case LinkQuality_Rpt:
+                
+                break;
+            
+        }
+        
     }
 
     public void onReceive_Discovery_St(PPPoEDiscovery discovery) throws CustomExceptions {
-        System.out.println("New packet;");
+        System.out.println("PPPoEDiscovery New packet;");
 
         if (waitingFor == WaitingFor.Offer) {
             if (discovery.getCode() == PPPCodes.PADO) {
@@ -57,7 +101,7 @@ public class PPPTransaction {
                             this.hostUniq = tag;
                         } else {
                             throw new CustomExceptions("Error when treating PADO the field HostUniq of the packet received is differs from the sent, sent was: "
-                                    + Arrays.toString(dataTagHostUniq) + " Recieved is: " + Arrays.toString(tag.getData()));
+                                    + Arrays.toString(dataTagHostUniq) + " received is: " + Arrays.toString(tag.getData()));
                         }
                     }
                 }
@@ -96,7 +140,7 @@ public class PPPTransaction {
                 this.waitingFor = WaitingFor.Ack;
 
             } else {
-                throw new CustomExceptions("I was waitiong for a PADO Packet, But I recieved: " + discovery.getCode().name() + " From " + discovery.getCode().getFrom().toString());
+                throw new CustomExceptions("I was waitiong for a PADO Packet, But I received: " + discovery.getCode().name() + " From " + discovery.getCode().getFrom().toString());
             }
         } else if (waitingFor == WaitingFor.Ack) {
             if (discovery.getCode() == PPPCodes.PADS) {
@@ -107,7 +151,7 @@ public class PPPTransaction {
                             this.hostUniq = tag;
                         } else {
                             throw new CustomExceptions("Error when treating PADS the field HostUniq of the packet received is differs from the sent, sent was: "
-                                    + Arrays.toString(dataTagHostUniq) + " Recieved is: " + Arrays.toString(tag.getData()));
+                                    + Arrays.toString(dataTagHostUniq) + " received is: " + Arrays.toString(tag.getData()));
                         }
                     }
                 }
@@ -123,7 +167,7 @@ public class PPPTransaction {
                         if (Arrays.equals(this.ACCookie.getData(), tag.getData())) {
                             //Ok Cookie Match
                         } else {
-                            throw new CustomExceptions("Invalid cookie recieved: " + Arrays.toString(tag.getData()) + " From " + discovery.getCode().getFrom().toString()
+                            throw new CustomExceptions("Invalid cookie received: " + Arrays.toString(tag.getData()) + " From " + discovery.getCode().getFrom().toString()
                                     + " The right is: " + Arrays.toString(this.ACCookie.getData()));
                         }
                     }
@@ -134,10 +178,13 @@ public class PPPTransaction {
                     this.SessionStabilished = discovery.getSession_Id();
                     System.out.println("Session is : " + this.SessionStabilished);
                     waitingFor = WaitingFor.Everything;
+
+                    startLCP();
+
                 }
 
             } else {
-                throw new CustomExceptions("I was waitiong for a PADS Packet, But I recieved: " + discovery.getCode().name() + " From " + discovery.getCode().getFrom().toString());
+                throw new CustomExceptions("I was waitiong for a PADS Packet, But I received: " + discovery.getCode().name() + " From " + discovery.getCode().getFrom().toString());
             }
         } else if (waitingFor == WaitingFor.Everything) {
             if (discovery.getCode() == PPPCodes.PADT) {
@@ -170,6 +217,40 @@ public class PPPTransaction {
         try {
             routerInterface.sendWanEthernetBroadcast(EthernetTypes.PPP_Discovery_St, discoveryReply.getBytes());
             this.waitingFor = WaitingFor.Offer;
+        } catch (CustomExceptions ex) {
+            Logger.getLogger(PPPTransaction.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    public void startLCP() {
+
+        LCPOptions[] opt = new LCPOptions[2];
+
+        LCPOptions maxUnit = LCPOptions.Maximum_Receive_Unit;
+        maxUnit.setData(new byte[] {(byte)0x05,(byte)0xd4});
+
+        LCPOptions magicNumber = LCPOptions.Magic_Number;
+        magicNumber.setData(new byte[] {(byte)0xc7,(byte)0x7b,(byte)0x87,(byte)0x3d});
+
+        opt[0] = maxUnit;
+        opt[1] = magicNumber;
+        
+        short length = 0;
+        
+        for(LCPOptions pt : opt){
+            length += pt.getLength();
+        }
+        
+        
+
+        LCPPacket packt = new LCPPacket(LCPCodes.Configure_Rq,(byte)1, opt);
+        
+        
+        PPPoESession session = new PPPoESession(PPPProtocol_Ids.LCP,PPPCodes.Session_Data, SessionStabilished, packt);
+        
+        try {
+            routerInterface.sendWanData(EthernetTypes.PPP_Session_St,this.from, session.getBytes());
         } catch (CustomExceptions ex) {
             Logger.getLogger(PPPTransaction.class.getName()).log(Level.SEVERE, null, ex);
         }

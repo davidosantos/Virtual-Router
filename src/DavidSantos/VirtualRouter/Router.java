@@ -9,6 +9,7 @@ import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
 import DavidSantos.VirtualRouter.PPP.PPPTransaction;
 import DavidSantos.VirtualRouter.PPP.PPPCodes;
 import DavidSantos.VirtualRouter.PPP.PPPoEDiscovery;
+import DavidSantos.VirtualRouter.PPP.PPPoESession;
 import java.util.ArrayList;
 import java.util.List;
 import org.jnetpcap.Pcap;
@@ -127,8 +128,47 @@ public class Router extends Thread implements RouterInterface {
                             //pcap.sendPacket(packet.getByteArray(0, packet.size()));
                             break;
                         case Arp:
+                            
+                            
+                            
                             break;
                         case PPP_Session_St:
+                            System.out.println("PPP_Session_St");
+
+                            byte[] payloadSession = ethernet.getPayload();
+
+                            System.out.println("Erray: ");
+                            int count_Session = 0;
+                            for (byte tb : payloadSession) {
+                                System.out.println(count_Session++ + ":" + Integer.toHexString(tb & 0xFF));
+                            }
+
+//    1                   2                   3
+//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |  VER  | TYPE  |      CODE     |          SESSION_ID           |
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//   |            LENGTH             |           payload             ~
+//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                            // refer to https://tools.ietf.org/html/rfc2516
+                            if (payloadSession[0] == 0x11) { //0x11 is version and type 1 and 1
+                                PPPCodes type = PPPCodes.getTypeName(payloadSession[1] & 0xFF);
+                                type.setFrom(new MACAddress(packet.getHeader(ethernet).source()));
+                                short session = (short) ((short) payloadSession[2] & 0xFF << 8 | payloadSession[3] & 0xFF);
+                                short length = (short) ((short) payloadSession[4] & 0xFF << 8 | payloadSession[5] & 0xFF);
+                                byte[] payloadPPPoE = new byte[length];
+                                int i = 6;
+                                for (int j = 0; j < length; j++) {
+                                    payloadPPPoE[j] = (byte) (payloadSession[i++] & 0xFF);
+                                }
+                                pppTransaction.onReceive_Session_St(new PPPoESession(type, session, length, payloadPPPoE));
+
+                            } else {
+                                throw new CustomExceptions("PPP Packet not supported, the only version supported is 0x11, version received is: 0x"
+                                        + Integer.toHexString(payloadSession[0]));
+                            }
+                            
+                            
                             break;
 
                         case PPP_Discovery_St:

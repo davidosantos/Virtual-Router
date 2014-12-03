@@ -24,47 +24,42 @@ import java.util.logging.Logger;
  * @author root
  */
 public class UserInterface extends javax.swing.JFrame implements DHCPImplementation, DNSImplementation {
+
     private DHCPTransaction dhcpTransaction;
     private TCPTransaction tcp;
     private static DNSTransaction dns;
     private static GatewayTransaction gateway;
     Router router;
+
     /**
      * Creates new form UserInterface
      */
     public UserInterface() {
         initComponents();
         //try {
-            //dhcpTransaction = new DHCPTransaction(this);
-            //dhcpTransaction.start();
-            
-            //tcp = new TCPTransaction();
-            
-            //tcp.start();
-        
-         router = new Router();
-        
+        //dhcpTransaction = new DHCPTransaction(this);
+        //dhcpTransaction.start();
+
+        //tcp = new TCPTransaction();
+        //tcp.start();
+        router = new Router();
+
         router.startRouter();
-        
-            
-           // dns = new DNSTransaction(this, InetAddress.getByName("172.27.59.172"));
-            
-            //dns.startService();
-            
-            //gateway = new GatewayTransaction(InetAddress.getByName("172.27.59.172"), Ports.PortsNumber.Port_DNS, TransactionListener.ConnectionType.Both);
-            //gateway.startService();
-            
-       // } catch (IOException ex) {
-           // Logger.getLogger(UserInterface.class.getName()).log(Level.SEVERE, null, ex);
-      //  }
-        
+
+        // dns = new DNSTransaction(this, InetAddress.getByName("172.27.59.172"));
+        //dns.startService();
+        //gateway = new GatewayTransaction(InetAddress.getByName("172.27.59.172"), Ports.PortsNumber.Port_DNS, TransactionListener.ConnectionType.Both);
+        //gateway.startService();
+        // } catch (IOException ex) {
+        // Logger.getLogger(UserInterface.class.getName()).log(Level.SEVERE, null, ex);
+        //  }
         try {
             Net_Interfaces ni = new Net_Interfaces();
             ni.printNames();
         } catch (SocketException ex) {
             Logger.getLogger(UserInterface.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
+
     }
 
     /**
@@ -197,7 +192,6 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
         return "255.255.255.0";
     }
 
-
     @Override
     public void onUnknownHostException(UnknownHostException ex) {
         jTextArea.append(ex.getMessage());
@@ -225,7 +219,7 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
 
     @Override
     public String getStaticRouteTable() {
-        return "192.168.0.104"; 
+        return "192.168.0.104";
     }
 
     @Override
@@ -251,10 +245,9 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
     @Override
     public String[] getDNSServers() {
         String[] dns = new String[1];
-        
+
         dns[0] = "172.27.59.147";
-       
-        
+
         return dns;
     }
 
@@ -265,19 +258,19 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
 
     @Override
     public boolean IPAddressRequest(String ip, String mac, String hostname) {
-        
+
         jTextArea.append("Requested ip: " + ip + " MAC: " + " Hostname: " + hostname);
         return true;
     }
 
     @Override
     public int getAddressLeaseTime() {
-       return 7200; //two hours
+        return 7200; //two hours
     }
 
     @Override
     public String getDHCPServerIP() {
-        
+
         return "192.168.0.104";
     }
 
@@ -302,15 +295,14 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
     }
 
     @Override
-    public boolean allowDNSRequest(String host,String toDomain) {
-       jTextArea.append("\nDNS Allow acess of " + host +  " to "  + toDomain + "?, for now is true\n");
-       return true;
+    public boolean allowDNSRequest(String host, String toDomain) {
+        jTextArea.append("\nDNS Allow acess of " + host + " to " + toDomain + "?, for now is true\n");
+        return true;
     }
-
 
     @Override
     public void DNSOIExcetion(String error) {
-        jTextArea.append("\nDNS Error: " + error  + "\n");
+        jTextArea.append("\nDNS Error: " + error + "\n");
     }
 
     @Override

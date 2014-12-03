@@ -17,20 +17,20 @@ import java.util.logging.Logger;
  * @author dsantos4
  */
 public class Net_Interfaces {
-    
+
     Enumeration<NetworkInterface> NetworkInterfaces;
-    
-    public Net_Interfaces () throws SocketException{
+
+    public Net_Interfaces() throws SocketException {
         NetworkInterfaces = NetworkInterface.getNetworkInterfaces();
     }
-     
-    public void printNames () throws SocketException{
-       for(NetworkInterface nets : Collections.list(NetworkInterfaces)){
-           displayInterfaceInformation(nets);
-       }
-       
+
+    public void printNames() throws SocketException {
+        for (NetworkInterface nets : Collections.list(NetworkInterfaces)) {
+            displayInterfaceInformation(nets);
+        }
+
     }
-    
+
     void displayInterfaceInformation(NetworkInterface netint) throws SocketException {
         System.out.printf("Display name: %s\n", netint.getDisplayName());
         System.out.printf("Name: %s\n", netint.getName());
@@ -39,14 +39,13 @@ public class Net_Interfaces {
             System.out.printf("InetAddress: %s\n", inetAddress);
         }
         System.out.printf("\n");
-        
-     }
-    
-    public static NetworkInterface getDHCPInterface(){
-        
-        
+
+    }
+
+    public static NetworkInterface getDHCPInterface() {
+
         try {
-            
+
             return NetworkInterface.getByName("eth0");
         } catch (SocketException ex) {
             Logger.getLogger(Net_Interfaces.class.getName()).log(Level.SEVERE, null, ex);

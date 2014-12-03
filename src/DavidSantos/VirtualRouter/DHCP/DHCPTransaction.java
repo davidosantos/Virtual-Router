@@ -129,8 +129,8 @@ public class DHCPTransaction extends Thread {
         try {
             DHCPPacket Reply = new DHCPPacket(DHCPPacket.OP.Response, DHCPPacket.HType.Ethernet10MB,
                     InetAddress.getByName(DHCPImpl.getNextAvlIP()), //Next Available Ip
-InetAddress.getByName(DHCPImpl.getServerIP()), // Server IP
-InetAddress.getByName(DHCPImpl.getDefaultGatewayIP()), //Gateway
+                    InetAddress.getByName(DHCPImpl.getServerIP()), // Server IP
+                    InetAddress.getByName(DHCPImpl.getDefaultGatewayIP()), //Gateway
                     DhcpPacket_Received.getXID());
 
             Reply.createMagicCookie();

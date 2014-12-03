@@ -62,7 +62,6 @@ public enum TAGS {
      * Host.
      */
     AC_Cookie((short) 0x0104),
-    
     PPPOE_TAG_VENDOR_SPEC((short) 0x0105), // Vendor Specific 
     PPPOE_TAG_RELAY_SESSION((short) 0x0110), // Relay Session Id
     PPPOE_TAG_MAX_PAYLOAD((short) 0x0120), // RFC 4638 Max Payload

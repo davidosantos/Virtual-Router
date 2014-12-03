@@ -20,7 +20,7 @@ public class DHCPPacket {
 
     private byte[] DHCPPacket;
     private ByteBuffer DHCPPacketByteBuffer;
-    
+
     private final int Field_Op = 0;
     private final int Field_HType = 1;
     private final int Field_HLen = 2;
@@ -1141,6 +1141,7 @@ public class DHCPPacket {
 
         throw new AssertionError("01 End of Messages Reached, could not find message: " + type.toString());
     }
+
     public int getMessageOffset(MessagesType type) throws AssertionError {
         int Index_Pointer = Field_Options + FourBytes; // + 4 porque Field_Options aponta para o Magic Cookie, então mais 4 apontará para primeira menssagem
         int Message_number = (DHCPPacket[Index_Pointer] & 0xFF); //primeira msg
@@ -1152,7 +1153,6 @@ public class DHCPPacket {
             }
 
             Message_number = (DHCPPacket[Index_Pointer] & 0xFF);
-            
 
             if (Message_number == MessageType_Number) {
 
@@ -1207,14 +1207,14 @@ public class DHCPPacket {
         }
         throw new AssertionError("04 End of Messages Reached, could not find message: " + type.toString());
     }
-    
+
     public boolean isMessageExist(MessagesType type) throws AssertionError {
         int Index_Pointer = Field_Options + FourBytes; // + 4 porque Field_Options aponta para o Magic Cookie, então mais 4 apontará para primeira menssagem
         int Message_number;
         int MessageType_Number = type.getmType();
 
         while (Index_Pointer < DHCPPacket.length - 1) {
-            
+
             Message_number = (DHCPPacket[Index_Pointer] & 0xFF);
 
             if (Message_number == MessageType_Number) {
@@ -1300,7 +1300,7 @@ public class DHCPPacket {
 
     public String getMACAddrs() {
 
-        return String.format("%2s-%2s-%2s-%2s-%2s-%2s", 
+        return String.format("%2s-%2s-%2s-%2s-%2s-%2s",
                 Integer.toHexString(DHCPPacket[Field_CHAddr] & 0xFF).toUpperCase(),
                 Integer.toHexString(DHCPPacket[Field_CHAddr + 1] & 0xFF).toUpperCase(),
                 Integer.toHexString(DHCPPacket[Field_CHAddr + 2] & 0xFF).toUpperCase(),
@@ -1329,14 +1329,12 @@ public class DHCPPacket {
     }
 
     public DatagramPacket getPacket() {
-        
-        int MsgSize = getMessageOffset(MessagesType.TheEnd);
-        
-        
 
-        DHCPPacketByteBuffer = ByteBuffer.wrap(DHCPPacket, 0, MsgSize+1);
+        int MsgSize = getMessageOffset(MessagesType.TheEnd);
+
+        DHCPPacketByteBuffer = ByteBuffer.wrap(DHCPPacket, 0, MsgSize + 1);
         DHCPPacketByteBuffer.order(ByteOrder.BIG_ENDIAN);
-        DatagramPacket packet = new DatagramPacket(DHCPPacketByteBuffer.array(), MsgSize+1);
+        DatagramPacket packet = new DatagramPacket(DHCPPacketByteBuffer.array(), MsgSize + 1);
 
         return packet;
     }

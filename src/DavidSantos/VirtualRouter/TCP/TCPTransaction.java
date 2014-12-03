@@ -84,13 +84,12 @@ public class TCPTransaction extends Thread {
                 .printf("\nChoosing '%s' on your behalf:\n",
                         (device.getDescription() != null) ? device.getDescription()
                                 : device.getName());
-        
-        
-            int snaplen = 64 * 1024;           // Capture all packets, no trucation  
-            int flags = Pcap.MODE_PROMISCUOUS; // capture packets  sent to me
-            int timeout = 0;           // 10 seconds in millis  
 
-            final Pcap pcap = Pcap.openLive("eth0", snaplen, flags, timeout, errbuf);
+        int snaplen = 64 * 1024;           // Capture all packets, no trucation  
+        int flags = Pcap.MODE_PROMISCUOUS; // capture packets  sent to me
+        int timeout = 0;           // 10 seconds in millis  
+
+        final Pcap pcap = Pcap.openLive("eth0", snaplen, flags, timeout, errbuf);
 
         /**
          * *************************************************************************
@@ -98,33 +97,26 @@ public class TCPTransaction extends Thread {
          * ************************************************************************
          */
         PcapPacketHandler<String> jpacketHandler = new PcapPacketHandler<String>() {
-            
-           
+
             @Override
             public void nextPacket(PcapPacket packet, String user) {
-                
+
                 try {
-                    EthernetHeader ethernetHeader = new EthernetHeader(new MACAddress(packet.getByteArray(0, 5)), new MACAddress(packet.getByteArray(6, 11)), (short) ((short) packet.getUByte(12)<< 8 | packet.getByte(13)));
+                    EthernetHeader ethernetHeader = new EthernetHeader(new MACAddress(packet.getByteArray(0, 5)), new MACAddress(packet.getByteArray(6, 11)), (short) ((short) packet.getUByte(12) << 8 | packet.getByte(13)));
                     System.out.println("TY: " + ethernetHeader.getType().name());
-                
+
                 } catch (CustomExceptions ex) {
                     System.out.println(ex.getMessage());
                 }
-                
-                
-                
-                
-                
-                
+
                 Ip4 ip = new Ip4();
                 Tcp tcp = new Tcp();
                 Ethernet ethernet = packet.getHeader(new Ethernet());
                 PPP ppp = new PPP();
-                
-                
+
                 System.out.println("Erray: ");
-                
-                for(byte tb : packet.getByteArray(0, packet.size())){
+
+                for (byte tb : packet.getByteArray(0, packet.size())) {
                     System.out.print(" - " + Integer.toHexString(tb & 0xFF));
                 }
                 System.out.println("");
@@ -134,13 +126,12 @@ public class TCPTransaction extends Thread {
                 System.out.println("");
                 System.out.println("");
                 System.out.println("");
-                
-                if(packet.hasHeader(ppp)){
+
+                if (packet.hasHeader(ppp)) {
                     System.out.println("Has ppp header");
-                 
+
                 }
-                
-                
+
                 try {
                     if (packet.hasHeader(ip) && packet.hasHeader(tcp)) {
                         packet.getHeader(ethernet);
@@ -150,10 +141,6 @@ public class TCPTransaction extends Thread {
                                 InetAddress inets = InetAddress.getByAddress("", packet.getHeader(ip).source());
 
                                 packet.getHeader(new org.jnetpcap.protocol.wan.PPP());
-                                
-                                
-                                
-                              
 
                                 System.out.println("Ip.dst: " + inet.toString() + " Ip.src: " + inets.toString() + " Port: " + tcp.destination());
                             } catch (UnknownHostException ex) {
@@ -185,14 +172,12 @@ public class TCPTransaction extends Thread {
             int optimize = 0; // 1 means true, 0 means false   
             int netmask = 0;
 
-           // int result = pcap.compile(filter, expression, optimize, netmask);
-
-           // if (result != Pcap.OK) {
-           //     System.out.println("Filter error: " + pcap.getErr());
+            // int result = pcap.compile(filter, expression, optimize, netmask);
+            // if (result != Pcap.OK) {
+            //     System.out.println("Filter error: " + pcap.getErr());
             //    return;
             //}
             //pcap.setFilter(filter);
-
             if (pcap == null) {
                 System.err.printf("Error while opening device for capture: "
                         + errbuf.toString());

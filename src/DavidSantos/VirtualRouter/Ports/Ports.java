@@ -148,10 +148,10 @@ public final class Ports {
         return dataPacket;
     }
 
-    public static byte[] receiveTCPData(byte[] data, Timeout timeout,InetAddress localAddrs ,InetAddress adrss, PortsNumber port) throws SocketException, IOException, SocketTimeoutException {
+    public static byte[] receiveTCPData(byte[] data, Timeout timeout, InetAddress localAddrs, InetAddress adrss, PortsNumber port) throws SocketException, IOException, SocketTimeoutException {
 
         ByteArrayOutputStream baos;
-        try (Socket dataSocket = new Socket(adrss, port.getPortInt(),localAddrs, findFreeTCPPort())) {
+        try (Socket dataSocket = new Socket(adrss, port.getPortInt(), localAddrs, findFreeTCPPort())) {
             dataSocket.setSoTimeout(timeout.getTimeout());
             dataSocket.getOutputStream().write(data);
             InputStream input = dataSocket.getInputStream();
@@ -189,14 +189,14 @@ public final class Ports {
         private static int shirinkedToAddrs;
 
         private static int getShrinkAddrs(byte[] data) {
-            
-            int Addrs=data.length;
-            
-            for(int i = data.length-1; data[i] == 0 ;i--){
-                Addrs =i;
-                    
+
+            int Addrs = data.length;
+
+            for (int i = data.length - 1; data[i] == 0; i--) {
+                Addrs = i;
+
             }
-           return Addrs;
+            return Addrs;
         }
 
         public static byte[] getShrikedData(byte[] dataToShrink) {

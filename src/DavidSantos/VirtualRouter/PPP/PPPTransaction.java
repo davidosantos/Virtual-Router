@@ -11,7 +11,9 @@ import DavidSantos.VirtualRouter.PPP.LCP.LCPCodes;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPOptions;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPPacket;
 import DavidSantos.VirtualRouter.RouterInterface;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -34,6 +36,8 @@ public class PPPTransaction {
 
     RouterInterface routerInterface;
 
+    List<LCPOptions> supportedOpitions = new ArrayList<>();
+
     public PPPTransaction(RouterInterface routerInterface) {
         this.routerInterface = routerInterface;
         this.random.nextBytes(dataTagHostUniq);
@@ -42,50 +46,83 @@ public class PPPTransaction {
     void Send(PPPoEDiscovery discovery) throws CustomExceptions {
 
     }
+    
+    private LCPOptions[] listToLCP(List<LCPOptions> options){
+        LCPOptions[] opt = new LCPOptions[options.size()];
+        for(int i=0; i< options.size(); i++){
+            opt[i] = options.get(i);
+        }
+        return opt;
+    }
 
-    public void onReceive_Session_St(PPPoESession session) {
+    public void onReceive_Session_St(PPPoESession session) throws CustomExceptions {
         System.out.println("PPPoESession New packet;");
-        
-        switch(session.getLCPPayload().getCode()){
+
+        switch (session.getLCPPayload().getCode()) {
             case Configure_Rq:
-                //MUST transmit a Configure-Reject.
+                //MUST transmit a Configure-Reject, or  Configure-Ack
+                List<LCPOptions> notSupported = new ArrayList<>();
+
+                for (LCPOptions option : session.getLCPPayload().getPayload()) {
+                    if (supportedOpitions.indexOf(option) == -1) {
+                        notSupported.add(option);
+                    }
+                }
+                if (notSupported.size() > 0) {
+                    
+                    LCPPacket packt = new LCPPacket(LCPCodes.Configure_Rej, (byte) 1,listToLCP(notSupported) );
+
+                    PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, packt);
+                    
+                    routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.from, sessionReply.getBytes());
+
+                } else {
+                    
+                    LCPPacket packt = new LCPPacket(LCPCodes.Configure_Ack, (byte) 1, listToLCP(notSupported));
+
+                    PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, packt);
+                    
+                    routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.from, sessionReply.getBytes());
+
+                }
+
                 break;
             case Configure_Ack:
-                
+
                 break;
             case Configure_Nak:
-                
+
                 break;
             case Configure_Rej:
-                
+
                 break;
             case Terminate_Rq:
-                
+                System.out.println("Terminate Packet Request");
                 break;
             case Terminate_Ack:
-                
+                System.out.println("Terminate Packet ack");
                 break;
             case Code_Rej:
-                
+
                 break;
             case Protocol_Rej:
-                
+
                 break;
             case Echo_Rq:
-                
+
                 break;
             case Echo_Reply:
-                
+
                 break;
             case Discard_Rq:
-                
+
                 break;
             case LinkQuality_Rpt:
-                
+
                 break;
-            
+
         }
-        
+
     }
 
     public void onReceive_Discovery_St(PPPoEDiscovery discovery) throws CustomExceptions {
@@ -198,7 +235,7 @@ public class PPPTransaction {
         }
     }
 
-    public void start() {
+    public void start() throws CustomExceptions {
         TAGS[] tags = new TAGS[2];
         TAGS hostunique = TAGS.Host_Uniq;
         hostunique.setData(dataTagHostUniq);
@@ -213,46 +250,29 @@ public class PPPTransaction {
 
         PPPoEDiscovery discoveryReply = new PPPoEDiscovery(PPPCodes.PADI, session, tags);
 
-        try {
-            routerInterface.sendWanEthernetBroadcast(EthernetTypes.PPP_Discovery_St, discoveryReply.getBytes());
-            this.waitingFor = WaitingFor.Offer;
-        } catch (CustomExceptions ex) {
-            Logger.getLogger(PPPTransaction.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        routerInterface.sendWanEthernetBroadcast(EthernetTypes.PPP_Discovery_St, discoveryReply.getBytes());
+        this.waitingFor = WaitingFor.Offer;
 
     }
 
-    public void startLCP() {
+    public void startLCP() throws CustomExceptions {
 
         LCPOptions[] opt = new LCPOptions[2];
 
         LCPOptions maxUnit = LCPOptions.Maximum_Receive_Unit;
-        maxUnit.setData(new byte[] {(byte)0x05,(byte)0xd4});
+        maxUnit.setData(new byte[]{(byte) 0x05, (byte) 0xd4});
 
         LCPOptions magicNumber = LCPOptions.Magic_Number;
-        magicNumber.setData(new byte[] {(byte)0xc7,(byte)0x7b,(byte)0x87,(byte)0x3d});
+        magicNumber.setData(new byte[]{(byte) 0xc7, (byte) 0x7b, (byte) 0x87, (byte) 0x3d});
 
         opt[0] = maxUnit;
         opt[1] = magicNumber;
-        
-        short length = 0;
-        
-        for(LCPOptions pt : opt){
-            length += pt.getLength();
-        }
-        
-        
 
-        LCPPacket packt = new LCPPacket(LCPCodes.Configure_Rq,(byte)1, opt);
-        
-        
-        PPPoESession session = new PPPoESession(PPPProtocol_Ids.LCP,PPPCodes.Session_Data, SessionStabilished, packt);
-        
-        try {
-            routerInterface.sendWanData(EthernetTypes.PPP_Session_St,this.from, session.getBytes());
-        } catch (CustomExceptions ex) {
-            Logger.getLogger(PPPTransaction.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        LCPPacket packt = new LCPPacket(LCPCodes.Configure_Rq, (byte) 1, opt);
+
+        PPPoESession session = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, packt);
+
+        routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.from, session.getBytes());
 
     }
 

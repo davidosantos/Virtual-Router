@@ -4,7 +4,6 @@
  */
 package DavidSantos.VirtualRouter.DNS;
 
-
 import java.net.InetAddress;
 
 /**
@@ -12,17 +11,17 @@ import java.net.InetAddress;
  * @author root
  */
 public interface DNSImplementation {
-    
+
     public InetAddress getDNSServerAdrssToRedirect();
-    
+
     public InetAddress getDNSServerAdrss();
-    
-    public boolean allowDNSRequest(String host ,String toDomain);
-    
+
+    public boolean allowDNSRequest(String host, String toDomain);
+
     public boolean getDNSShowIRedirectDiniedRequests();
-    
+
     public InetAddress getDNSDiniedRequestsShouldBeRedirectedTo();
-    
+
     public void DNSOIExcetion(String error);
-    
+
 }

@@ -9,6 +9,8 @@ package DavidSantos.VirtualRouter.PPP;
  * @author root
  */
 public interface PPPInterface {
+
     public void startPPPoE();
+
     public void startConfirmation();
 }

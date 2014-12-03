@@ -32,16 +32,16 @@ public class PPPoESession {
         this.length = length;
         int counter = 0;
         this.protocol = PPPProtocol_Ids.getTypeName((short) (payload[counter++] << 8 | payload[counter++]) & 0xFFFF);
-        
+
         switch (protocol) {
             case LCP:
-                LCPCodes LCPCode = LCPCodes.getCode(payload[counter++]);
+                LCPCodes LCPCode = LCPCodes.getCode(payload[counter++] & 0xFF);
                 byte LCPIdentifier = payload[counter++];
                 short LCPLength = (short) (payload[counter++] << 8 | payload[counter++]);
 
                 List<LCPOptions> LCPOpt = new ArrayList<>();
-
-                for (int i = counter; i < payload.length;) {
+                if (LCPCode != LCPCodes.Terminate_Rq && LCPCode != LCPCodes.Terminate_Ack) {
+                    for (int i = counter; i < payload.length;) {
 //    0                   1                   2                   3
 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -49,22 +49,24 @@ public class PPPoESession {
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //
 //
-//   Type 
-//
-//      1 byte
-//
-//   Length
-//
-//      1 byte
-                    LCPOptions option = LCPOptions.getTypeName(payload[i++]);
-                    option.setLength(payload[i++]);
-                    option.setData(new byte[option.getLength()]);
+//   Type 1 byte  Length  1 byte
 
-                    for (int j = 0; j < option.getLength(); j++) {
-                        option.getData()[j] = (byte) (payload[i++] & 0xFF);
+                        LCPOptions option = LCPOptions.getTypeName(payload[i++] & 0xFF);
+                        option.setLength((byte) (payload[i++]));
+                        //-2 for Type end Length
+                        option.setData(new byte[option.getLength() - 2]);
+                        for (int j = 0; j < option.getLength() - 2; j++) {
+                            option.getData()[j] = (byte) (payload[i++] & 0xFF);
+                        }
+
+                        LCPOpt.add(option);
                     }
-
-                    LCPOpt.add(option);
+                } else {
+                    LCPOptions option = LCPOptions.Terminate;
+                    option.setData(new byte[LCPLength -4]);
+                    for (int j = 0; j < LCPLength - 4; j++) {
+                        option.getData()[j] = (byte) (payload[counter++] & 0xFF);
+                    }
                 }
 
                 LCPOptions[] LCPvalues = new LCPOptions[LCPOpt.size()];
@@ -156,16 +158,16 @@ public class PPPoESession {
         bytes.add((byte) (session_Id));
         bytes.add((byte) (length >> 8));
         bytes.add((byte) length);
-        
-        bytes.add((byte)(protocol.getType() >> 8));
-        bytes.add((byte)protocol.getType());
-        
+
+        bytes.add((byte) (protocol.getType() >> 8));
+        bytes.add((byte) protocol.getType());
+
         bytes.add(LCPPayload.getCode().getCode());
         bytes.add(LCPPayload.getIdentifier());
-        bytes.add((byte)(LCPPayload.getLength() >> 8));
-        bytes.add((byte)LCPPayload.getLength());
-        
-        for ( LCPOptions opt : this.LCPPayload.getPayload()){
+        bytes.add((byte) (LCPPayload.getLength() >> 8));
+        bytes.add((byte) LCPPayload.getLength());
+
+        for (LCPOptions opt : this.LCPPayload.getPayload()) {
             bytes.add(opt.getType());
             bytes.add(opt.getLength());
             if (opt.getData() != null) {
@@ -174,7 +176,7 @@ public class PPPoESession {
                 }
             }
         }
-        
+
         byte[] ret = new byte[bytes.size()];
 
         for (int i = 0; i < bytes.size(); i++) {

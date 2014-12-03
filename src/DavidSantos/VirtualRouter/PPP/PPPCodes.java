@@ -28,7 +28,7 @@ public enum PPPCodes {
     }
 
     public static PPPCodes getTypeName(int Number) throws CustomExceptions {
-     
+
         switch (Number) {
             case 0x00:
                 return PPPCodes.Session_Data;

@@ -629,10 +629,10 @@ public class DNSPacket {
             for (byte bt : addrsTo.getAddress()) {
                 retPacket.write(bt);
             }
-           // DataOfAnswers[i].Rdata = DNSPacket.this.readFromAddrs(pointer++, 4);
+            // DataOfAnswers[i].Rdata = DNSPacket.this.readFromAddrs(pointer++, 4);
 
         }
-       
+
         return retPacket.toByteArray();
 
     }

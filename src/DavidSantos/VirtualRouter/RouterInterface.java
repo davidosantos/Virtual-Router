@@ -11,10 +11,10 @@ import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
  * @author root
  */
 public interface RouterInterface {
-    
+
     public void sendWanEthernetBroadcast(EthernetTypes type, byte[] data) throws CustomExceptions;
-    
-    public void sendWanData(EthernetTypes type, MACAddress to , byte[] data) throws CustomExceptions;
-    
+
+    public void sendWanData(EthernetTypes type, MACAddress to, byte[] data) throws CustomExceptions;
+
     public void startPPPoEService();
 }

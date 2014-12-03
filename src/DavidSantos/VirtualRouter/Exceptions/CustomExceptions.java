@@ -9,7 +9,7 @@ package DavidSantos.VirtualRouter.Exceptions;
  * @author root
  */
 public class CustomExceptions extends Exception {
-    
+
     public CustomExceptions(String message) {
         super(message);
     }

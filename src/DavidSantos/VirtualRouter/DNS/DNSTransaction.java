@@ -59,7 +59,7 @@ public class DNSTransaction extends TransactionListener {
                 baos.write(buffer, 0, s);
             }
             data = Ports.Shrink.getShrikedData(baos.toByteArray());
-            
+
             DNSPacket Client = new DNSPacket();
             try {
                 Client.initPacket(data);
@@ -143,8 +143,6 @@ public class DNSTransaction extends TransactionListener {
 
     @Override
     public void onUDPConnectionReceived(DatagramPacket packet, DatagramSocket UDPSocket) {
-
-        
 
         DNSPacket Client = new DNSPacket();
         try {

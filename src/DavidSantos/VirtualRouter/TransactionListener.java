@@ -51,7 +51,7 @@ public abstract class TransactionListener extends Thread {
                     @Override
                     public void run() {
                         try {
-                         UDPSocket = Ports.getUDPSocket(adrss, port);
+                            UDPSocket = Ports.getUDPSocket(adrss, port);
                             while (true) {
                                 final DatagramPacket updPacket = new DatagramPacket(new byte[1450], 1450);
 
@@ -113,7 +113,7 @@ public abstract class TransactionListener extends Thread {
 
                     try {
                         server = new ServerSocket(port.getPortInt(), 1, adrss);
-                        
+
                         while (true) {
                             final Socket socket;
                             socket = server.accept();

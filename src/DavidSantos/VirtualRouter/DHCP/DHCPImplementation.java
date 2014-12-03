@@ -12,7 +12,7 @@ public interface DHCPImplementation {
     public abstract void onDHCPPackageReceived(DHCPPacket packet);
 
     public abstract void onDHCPPackageSent(DHCPPacket packet);
-    
+
     public abstract void onIPacknowledged(String ip);
 
     public abstract String getNextAvlIP();
@@ -35,16 +35,16 @@ public interface DHCPImplementation {
 
     public abstract String getStaticRouteTable();
 
-    public  abstract int getTimeOffset();
+    public abstract int getTimeOffset();
 
     public abstract String getTimeServer();
-    
+
     public abstract String[] getNameServers();
-    
+
     public abstract String[] getDNSServers();
 
     public abstract String getDomainName();
-    
+
     public abstract boolean IPAddressRequest(String ip, String mac, String hostname);
 
     public int getAddressLeaseTime();

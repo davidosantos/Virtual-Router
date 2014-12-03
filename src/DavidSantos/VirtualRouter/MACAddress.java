@@ -11,13 +11,17 @@ import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
  * @author root
  */
 public class MACAddress {
+
     byte[] mac = new byte[6];
 
     public MACAddress(byte[] mac) throws CustomExceptions {
-        if(mac.length != 6) throw new CustomExceptions("invalid MAC Addres, Length: " + mac.length);
+        if (mac.length != 6) {
+            throw new CustomExceptions("invalid MAC Addres, Length: " + mac.length);
+        }
         System.arraycopy(mac, 0, this.mac, 0, 6);
-            
+
     }
+
     public MACAddress(String mac) throws CustomExceptions {
     }
 
@@ -27,8 +31,8 @@ public class MACAddress {
 
     @Override
     public String toString() {
-        
-        return String.format("%02X:%02X:%02X:%02X:%02X:%02X",mac[0],mac[1] ,mac[2] ,mac[3] ,mac[4], mac[5]);
+
+        return String.format("%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     }
-   
+
 }

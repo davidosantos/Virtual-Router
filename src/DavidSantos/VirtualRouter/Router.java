@@ -10,6 +10,7 @@ import DavidSantos.VirtualRouter.PPP.PPPCodes;
 import DavidSantos.VirtualRouter.PPP.PPPoEDiscovery;
 import DavidSantos.VirtualRouter.PPP.PPPoESession;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.jnetpcap.Pcap;
 import org.jnetpcap.PcapIf;
@@ -123,13 +124,10 @@ public class Router extends Thread implements RouterInterface {
                             //packet.getHeader(ip).source(InetAddress.getByName("192.168.0.104").getAddress());
                             //System.out.println("IP to: " + InetAddress.getByAddress(packet.getHeader(new Ip4()).destination()).toString());
                             //System.out.println("IP from: " + InetAddress.getByAddress(packet.getHeader(new Ip4()).source()).toString());
-
                             //pcap.sendPacket(packet.getByteArray(0, packet.size()));
                             break;
                         case Arp:
-                            
-                            
-                            
+
                             break;
                         case PPP_Session_St:
                             System.out.println("PPP_Session_St");
@@ -166,8 +164,7 @@ public class Router extends Thread implements RouterInterface {
                                 throw new CustomExceptions("PPP Packet not supported, the only version supported is 0x11, version received is: 0x"
                                         + Integer.toHexString(payloadSession[0]));
                             }
-                            
-                            
+
                             break;
 
                         case PPP_Discovery_St:
@@ -207,6 +204,8 @@ public class Router extends Thread implements RouterInterface {
                                         + Integer.toHexString(payload[0]));
                             }
                             break;
+                        case IPv6:
+                            break;
 
                         default:
                             throw new AssertionError(ethernetHeader.getType().name());
@@ -215,7 +214,10 @@ public class Router extends Thread implements RouterInterface {
 
                 } catch (CustomExceptions ex) {
                     System.out.println(ex.getMessage());
-                } 
+                    for(StackTraceElement element :   ex.getStackTrace()){
+                        System.out.println(element);
+                    }
+                }
 
             }
         };
@@ -272,12 +274,16 @@ public class Router extends Thread implements RouterInterface {
 
     @Override
     public void startPPPoEService() {
-     pppTransaction.start();
+        try {
+            pppTransaction.start();
+        } catch (CustomExceptions ex) {
+            System.out.println(ex.getMessage());
+        }
     }
 
     @Override
     public void sendWanData(EthernetTypes type, MACAddress to, byte[] data) throws CustomExceptions {
-         // be ware of MTU
+        // be ware of MTU
         MACAddress source = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2B, (byte) 0xCB, (byte) 0xEE, (byte) 0x4E, (byte) 0x39});
 
         byte[] toSend = new byte[to.mac.length + source.mac.length + data.length + 2];// +2 for type field

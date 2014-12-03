@@ -20,12 +20,17 @@ public enum LCPOptions {
 //         8       Address-and-Control-Field-Compression
 
     RESERVED((byte) 0x00),
+    Terminate((byte) 0x00), //for use with termination packets
     Maximum_Receive_Unit((byte) 0x01),
     Authentication_Protocol((byte) 0x03),
     Quality_Protocol((byte) 0x04),
     Magic_Number((byte) 0x05),
     Protocol_Field_Compression((byte) 0x07),
-    Address_and_Control_Field_Compression((byte) 0x08);
+    Address_and_Control_Field_Compression((byte) 0x08),
+    Callback((byte) 0x0d),
+    Multilink_MRRU((byte) 0x11),
+    Multilink_EndPoint((byte) 0x13),
+    Link_Discriminator((byte) 0x17);
 
     private final byte type;
 
@@ -36,6 +41,12 @@ public enum LCPOptions {
         return type;
     }
 
+    /**
+     *
+     * @param Number
+     * @return
+     * @throws CustomExceptions
+     */
     public static LCPOptions getTypeName(int Number) throws CustomExceptions {
         switch (Number) {
             case 0x00:
@@ -52,7 +63,14 @@ public enum LCPOptions {
                 return LCPOptions.Protocol_Field_Compression;
             case 0x08:
                 return LCPOptions.Address_and_Control_Field_Compression;
-
+            case 0x0d:
+                return LCPOptions.Callback;
+            case 0x11:
+                return LCPOptions.Multilink_MRRU;
+            case 0x13:
+                return LCPOptions.Multilink_EndPoint;
+            case 0x17:
+                return LCPOptions.Link_Discriminator;
             default:
                 throw new CustomExceptions("LCP Option Unknown: 0x" + Integer.toHexString(Number));
         }
@@ -78,6 +96,8 @@ public enum LCPOptions {
 
     public void setData(byte[] data) {
         this.data = data;
-        this.length =  (byte) ((byte) data.length+2); //+2 type and length
+        if (this.length == 0) {
+            this.length = (byte) ((byte) data.length + 2); //+2 type and length
+        }
     }
 }

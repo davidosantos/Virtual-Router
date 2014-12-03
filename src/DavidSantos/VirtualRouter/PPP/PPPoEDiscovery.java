@@ -84,8 +84,8 @@ public class PPPoEDiscovery {
      *
      * The LENGTH field is sixteen bits. The value, in network byte order,
      * indicates the length of the PPPoE payload. It does not include the length
-     * of the Ethernet or PPPoE headers.
-     * Reference https://tools.ietf.org/html/rfc2516
+     * of the Ethernet or PPPoE headers. Reference
+     * https://tools.ietf.org/html/rfc2516
      */
     PPPoEDiscovery(PPPCodes pppCodes, short session, TAGS[] tag) {
         this.code = pppCodes;

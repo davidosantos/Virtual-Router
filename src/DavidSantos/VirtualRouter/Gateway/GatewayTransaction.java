@@ -33,10 +33,10 @@ public class GatewayTransaction extends TransactionListener {
 
     @Override
     public void onTCPConnectionReceived(Socket socket) {
-        
-        System.out.println("From IP: " + socket.getInetAddress() + " port: "+ socket.getPort());
+
+        System.out.println("From IP: " + socket.getInetAddress() + " port: " + socket.getPort());
         try {
-            this.sleep(30*1000);
+            this.sleep(30 * 1000);
         } catch (InterruptedException ex) {
             Logger.getLogger(GatewayTransaction.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -45,7 +45,7 @@ public class GatewayTransaction extends TransactionListener {
     @Override
     public void onUDPConnectionReceived(DatagramPacket packet, DatagramSocket UDPSocket) {
         try {
-            this.sleep(30*1000);
+            this.sleep(30 * 1000);
         } catch (InterruptedException ex) {
             Logger.getLogger(GatewayTransaction.class.getName()).log(Level.SEVERE, null, ex);
         }

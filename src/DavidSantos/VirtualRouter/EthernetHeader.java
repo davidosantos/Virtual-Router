@@ -11,6 +11,7 @@ import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
  * @author root
  */
 public class EthernetHeader {
+
     private final MACAddress dest;
     private final MACAddress source;
     private final EthernetTypes Type;
@@ -32,5 +33,5 @@ public class EthernetHeader {
     public EthernetTypes getType() {
         return Type;
     }
-    
+
 }

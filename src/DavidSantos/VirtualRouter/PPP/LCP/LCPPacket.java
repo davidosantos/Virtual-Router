@@ -9,13 +9,16 @@ package DavidSantos.VirtualRouter.PPP.LCP;
  * @author root
  */
 public class LCPPacket {
+
     private LCPCodes code;
     private byte identifier;
     private short length;
     private LCPOptions[] payload;
 
     /**
-     * This constructor is meant to be used when receiving LCP Packet from network.
+     * This constructor is meant to be used when receiving LCP Packet from
+     * network.
+     *
      * @param code
      * @param identifier
      * @param length
@@ -27,8 +30,10 @@ public class LCPPacket {
         this.length = length;
         this.payload = payload;
     }
+
     /**
      * This constructor is meant to be used when creating new packet.
+     *
      * @param code
      * @param identifier
      * @param length
@@ -40,15 +45,14 @@ public class LCPPacket {
         this.length = calculateLength(payload);
         this.payload = payload;
     }
-    
-    private short calculateLength(LCPOptions[] opt){
+
+    private short calculateLength(LCPOptions[] opt) {
         short calculatedlength = 0;
-        for(LCPOptions option :  opt){
+        for (LCPOptions option : opt) {
             calculatedlength += option.getLength();
         }
         return calculatedlength += 4; // +4 for code, indentifier and length
     }
-    
 
     public LCPCodes getCode() {
         return code;
@@ -81,5 +85,5 @@ public class LCPPacket {
     public void setPayload(LCPOptions[] payload) {
         this.payload = payload;
     }
-    
+
 }

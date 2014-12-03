@@ -1,7 +1,6 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+/* 
+ * This project is for learning purposes only, therefore there is no warranty it is going to work as expected without errors.
+ * use it at your own risk.
  */
 package DavidSantos.VirtualRouter.DNS;
 

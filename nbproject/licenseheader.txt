@@ -1,0 +1,8 @@
+<#if licenseFirst??>
+${licenseFirst}
+</#if>
+${licensePrefix}This project is for learning purposes only, therefore there is no warranty it is going to work as expected without errors.
+${licensePrefix}use it at your own risk.
+<#if licenseLast??>
+${licenseLast}
+</#if>

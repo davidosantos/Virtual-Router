@@ -12,7 +12,7 @@ import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
  * @author root
  */
 public enum TAGS {
-    
+
 //    1                   2                   3
 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -20,9 +20,6 @@ public enum TAGS {
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 //   |          TAG_VALUE ...                                        ~
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    
-    
-
     /**
      * This TAG indicates that there are no further TAGs in the list. The
      * TAG_LENGTH of this TAG MUST always be zero. Use of this TAG is not
@@ -65,13 +62,19 @@ public enum TAGS {
      * binary data of any value and // length and is not interpreted by the
      * Host.
      */
-    AC_Cookie((short) 0x0104);
+    AC_Cookie((short) 0x0104),
+    
+    PPPOE_TAG_VENDOR_SPEC((short) 0x0105), // Vendor Specific 
+    PPPOE_TAG_RELAY_SESSION((short) 0x0110), // Relay Session Id
+    PPPOE_TAG_MAX_PAYLOAD((short) 0x0120), // RFC 4638 Max Payload
+    PPPOE_TAG_SERVICE_NAME_ERROR((short) 0x0201), // Service Name Error
+    PPPOE_TAG_AC_SYSTEM_ERROR((short) 0x0202), // Acc. Concentrator Error
+    PPPOE_TAG_GENERIC_ERROR((short) 0x0203);	// Generic Error 
 
     private final short type;
-    
+
     private short length;
     private byte[] data;
-    
 
     public short getType() {
         return type;

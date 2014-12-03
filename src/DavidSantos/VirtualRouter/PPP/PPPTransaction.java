@@ -15,8 +15,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -31,6 +29,10 @@ public class PPPTransaction {
     TAGS hostUniq;
     byte[] dataTagHostUniq = new byte[4]; //new byte[]{(byte) 0x94, (byte) 0x98, (byte) 0x00, (byte) 0x00,};
     MACAddress from;
+    
+    private byte questions_Identifier;
+    private byte server_Questions_Identifier;
+    
 
     short SessionStabilished; /// must test session before sending data.
 
@@ -41,6 +43,11 @@ public class PPPTransaction {
     public PPPTransaction(RouterInterface routerInterface) {
         this.routerInterface = routerInterface;
         this.random.nextBytes(dataTagHostUniq);
+        
+        supportedOpitions.add(LCPOptions.Maximum_Receive_Unit);
+        supportedOpitions.add(LCPOptions.Magic_Number);
+        supportedOpitions.add(LCPOptions.Authentication_Protocol);
+        supportedOpitions.add(LCPOptions.Multilink_EndPoint);
     }
 
     void Send(PPPoEDiscovery discovery) throws CustomExceptions {
@@ -62,6 +69,8 @@ public class PPPTransaction {
             case Configure_Rq:
                 //MUST transmit a Configure-Reject, or  Configure-Ack
                 List<LCPOptions> notSupported = new ArrayList<>();
+                
+                this.server_Questions_Identifier = session.getLCPPayload().getIdentifier();
 
                 for (LCPOptions option : session.getLCPPayload().getPayload()) {
                     if (supportedOpitions.indexOf(option) == -1) {
@@ -70,15 +79,15 @@ public class PPPTransaction {
                 }
                 if (notSupported.size() > 0) {
                     
-                    LCPPacket packt = new LCPPacket(LCPCodes.Configure_Rej, (byte) 1,listToLCP(notSupported) );
+                    LCPPacket packt = new LCPPacket(LCPCodes.Configure_Rej, server_Questions_Identifier,listToLCP(notSupported) );
 
                     PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, packt);
                     
                     routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.from, sessionReply.getBytes());
 
                 } else {
-                    
-                    LCPPacket packt = new LCPPacket(LCPCodes.Configure_Ack, (byte) 1, listToLCP(notSupported));
+                    //might send nak packet to correct values in the acceptable options, need to fix
+                    LCPPacket packt = new LCPPacket(LCPCodes.Configure_Ack, server_Questions_Identifier, session.getLCPPayload().getPayload());
 
                     PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, packt);
                     
@@ -88,7 +97,7 @@ public class PPPTransaction {
 
                 break;
             case Configure_Ack:
-
+                // must macth up questions_Identifier
                 break;
             case Configure_Nak:
 
@@ -267,8 +276,8 @@ public class PPPTransaction {
 
         opt[0] = maxUnit;
         opt[1] = magicNumber;
-
-        LCPPacket packt = new LCPPacket(LCPCodes.Configure_Rq, (byte) 1, opt);
+        questions_Identifier = 1;
+        LCPPacket packt = new LCPPacket(LCPCodes.Configure_Rq, questions_Identifier, opt);
 
         PPPoESession session = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, packt);
 

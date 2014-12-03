@@ -106,7 +106,7 @@ public class DHCPTransaction extends Thread {
                          DHCPTransaction dhcpTransaction = new DHCPTransaction(DhcpPacket_Received, DhcpPacket_Received.getXID(), DHCPImpl);
                          dhcpTransaction.start();
                          } */
-                    } while (DhcpPacket_Received.getXID() != this.Transaction_Id); //if packet recieved differ so try again and wait ten secs
+                    } while (DhcpPacket_Received.getXID() != this.Transaction_Id); //if packet received differ so try again and wait ten secs
 
                 }
 

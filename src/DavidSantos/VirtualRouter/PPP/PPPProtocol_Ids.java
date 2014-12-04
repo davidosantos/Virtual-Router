@@ -43,8 +43,18 @@ public enum PPPProtocol_Ids {
     public static PPPProtocol_Ids getTypeName(int Number) throws CustomExceptions {
 
         switch (Number) {
+            case 0xc001:
+                return PPPProtocol_Ids.Padding;
             case 0xc021:
                 return PPPProtocol_Ids.LCP;
+            case 0xc023:
+                return PPPProtocol_Ids.PAP;
+            case 0xc025:
+                return PPPProtocol_Ids.LQR;
+            case 0xc223:
+                return PPPProtocol_Ids.CHAP;
+            case 0x0021:
+                return PPPProtocol_Ids.IPv4;
 
             default:
                 throw new CustomExceptions("PPP Protocol Unknown: 0x" + Integer.toHexString(Number));

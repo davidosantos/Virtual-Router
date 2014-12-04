@@ -14,6 +14,7 @@ public enum AuthenticationType {
     
     CHAP((short) 0xC223),	
     EAP((short) 0xC227),
+    SPAP((short) 0xc027), //Shiva Password Authentication Protocol
     PAP((short) 0xC023);	
 
     private final short type;
@@ -28,6 +29,8 @@ public enum AuthenticationType {
                 return AuthenticationType.CHAP;
             case 0xC023:
                 return AuthenticationType.PAP;
+            case 0xc027:
+                return AuthenticationType.SPAP;
             case 0xC227:
                 return AuthenticationType.PAP;
             

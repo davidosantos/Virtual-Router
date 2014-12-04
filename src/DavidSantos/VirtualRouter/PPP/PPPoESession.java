@@ -63,7 +63,7 @@ public class PPPoESession {
                     }
                 } else {
                     LCPOptions option = LCPOptions.Terminate;
-                    option.setData(new byte[LCPLength -4]);
+                    option.setData(new byte[LCPLength - 4]);
                     for (int j = 0; j < LCPLength - 4; j++) {
                         option.getData()[j] = (byte) (payload[counter++] & 0xFF);
                     }
@@ -79,7 +79,7 @@ public class PPPoESession {
 
                 break;
             default:
-                throw new CustomExceptions("Protocol 0x" + Integer.toHexString((payload[0] << 8 | payload[1])) + " has not yet been implemented");
+                throw new CustomExceptions("Protocol 0x" + Integer.toHexString((payload[0] << 8 | payload[1]) & 0xFFFF) + " has not yet been implemented");
 
         }
 

@@ -11,11 +11,13 @@ import DavidSantos.VirtualRouter.PPP.LCP.AuthenticationType;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPCodes;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPOptions;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPPacket;
+import DavidSantos.VirtualRouter.PPP.LCP.MagicNumber;
 import DavidSantos.VirtualRouter.RouterInterface;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import javax.print.DocFlavor;
 
 /**
  *
@@ -25,22 +27,26 @@ public class PPPTransaction {
 
     private WaitingFor waitingFor = WaitingFor.none;
     Random random = new Random();
+    //PPP
     TAGS ACName;
     TAGS ACCookie;
     TAGS hostUniq;
     byte[] dataTagHostUniq = new byte[4]; //new byte[]{(byte) 0x94, (byte) 0x98, (byte) 0x00, (byte) 0x00,};
-    MACAddress from;
-
-    AuthenticationType AuthType;
-
-    private byte questions_Identifier;
-    private byte server_Questions_Identifier;
-
     short SessionStabilished; /// must test session before sending data.
 
-    RouterInterface routerInterface;
-
+    //LCP
+    MACAddress fromServer;
+    MagicNumber Client_Magic_Number;
+    MagicNumber Server_Magic_Number;
+    List<LCPOptions> ServerAcknolegments;
+    AuthenticationType AuthType;
+    private byte questions_Identifier;
+    private byte server_Questions_Identifier;
     List<LCPOptions> supportedOpitions = new ArrayList<>();
+
+    boolean isConnected = false;
+
+    RouterInterface routerInterface;
 
     public PPPTransaction(RouterInterface routerInterface) {
         this.routerInterface = routerInterface;
@@ -52,6 +58,9 @@ public class PPPTransaction {
         supportedOpitions.add(LCPOptions.Multilink_EndPoint);
 
         AuthType = AuthenticationType.PAP;
+
+        ServerAcknolegments = new ArrayList<>();
+
     }
 
     void Send(PPPoEDiscovery discovery) throws CustomExceptions {
@@ -67,7 +76,6 @@ public class PPPTransaction {
     }
 
     public void onReceive_Session_St(PPPoESession session) throws CustomExceptions {
-        System.out.println("PPPoESession New packet;");
 
         switch (session.getLCPPayload().getCode()) {
             case Configure_Rq:
@@ -77,46 +85,74 @@ public class PPPTransaction {
                 this.server_Questions_Identifier = session.getLCPPayload().getIdentifier();
 
                 for (LCPOptions option : session.getLCPPayload().getPayload()) {
-                    if (supportedOpitions.indexOf(option) == -1) {
-                        notSupported.add(option);
+                    if (supportedOpitions.indexOf(option) == -1) { //if note exists in the supportedOpitions, then
+                        notSupported.add(option);// add tp not notSupported
                     }
                 }
-                if (notSupported.size() > 0) {
+                if (notSupported.size() > 0) { //if there is any not notSupported
 
-                    LCPPacket packt = new LCPPacket(LCPCodes.Configure_Rej, server_Questions_Identifier, listToLCP(notSupported));
+                    LCPPacket packt = new LCPPacket(LCPCodes.Configure_Rej, server_Questions_Identifier, listToLCP(notSupported)); //collect the not supprted options
 
-                    PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, packt);
+                    PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, packt); // join with the LCP protocou header
 
-                    routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.from, sessionReply.getBytes());
+                    routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, sessionReply.getBytes()); //send it to the server that we are talkin to
 
-                } else {
+                } else { //if all options are supported, then
                     //might send nak packet to correct values in the acceptable options
-                    for (LCPOptions option : session.getLCPPayload().getPayload()) {
-                        if (option == LCPOptions.Authentication_Protocol) {
-                            if (AuthenticationType.getTypeName((short) (option.getData()[0] << 8 | option.getData()[1]) & 0xFFFF) == AuthType) {
+                    for (LCPOptions option : session.getLCPPayload().getPayload()) { //walk throgh the options
+                        if (option == LCPOptions.Authentication_Protocol) { //find the Authentication_Protocol
+                            if (AuthenticationType.getTypeName((short) (option.getData()[0] << 8 | option.getData()[1]) & 0xFFFF) == AuthType) { // check if it matches with our supported authentication type
 
-                                LCPPacket lcppacket = new LCPPacket(LCPCodes.Configure_Ack, server_Questions_Identifier, session.getLCPPayload().getPayload());
+                                LCPPacket lcppacket = new LCPPacket(LCPCodes.Configure_Ack, server_Questions_Identifier, session.getLCPPayload().getPayload()); //if it does match, then create a ack packet
 
-                                PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, lcppacket);
+                                PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, lcppacket); // join with the LCP protocou header
 
-                                routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.from, sessionReply.getBytes()); //tell the server we are ok
-                            } else {
+                                routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, sessionReply.getBytes()); //tell the server we are ok
 
-                                option.setData(new byte[]{(byte) (this.AuthType.getType() >> 8), (byte) this.AuthType.getType()});
-                                option.setLength((byte) 4); // Length must include the length and type fields
-                                LCPPacket lcppacket = new LCPPacket(LCPCodes.Configure_Nak, server_Questions_Identifier, session.getLCPPayload().getPayload());
+                                // we are ready to start authentication process here, if authentication type is chap, then we should just wait for chap packet, the server will surely send
+                                // when authetication is successful set isConnected to true
+                            } else { // if the authentication type doesn't match, then:
 
-                                PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, lcppacket);
+                                option.setData(new byte[]{(byte) (this.AuthType.getType() >> 8), (byte) this.AuthType.getType()}); //set the option data field with the supported authentication type
+                                option.setLength((byte) 4); // Length must include the length and type fields, and must be set, otherwise a error will occur 
+                                LCPPacket lcppacket = new LCPPacket(LCPCodes.Configure_Nak, server_Questions_Identifier, session.getLCPPayload().getPayload()); //create a corrected 
 
-                                routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.from, sessionReply.getBytes()); // tell the server to correct the authentication type to match our his.AuthType.getType() 
+                                PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, lcppacket); // join with the LCP protocou header
+
+                                routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, sessionReply.getBytes()); // tell the server to correct the authentication type to match our this.AuthType.getType() 
                             }
                         }
+
+                        if (option == LCPOptions.Magic_Number) {
+                            this.Server_Magic_Number = new MagicNumber((int) (option.getData()[0] << 24 | option.getData()[1] << 16 | option.getData()[2] << 8 | option.getData()[3]) & 0xFFFFFFFF);
+                        }
+
                     }
                 }
 
                 break;
             case Configure_Ack:
                 // must macth up questions_Identifier
+                if (session.getLCPPayload().getIdentifier() == this.questions_Identifier) {
+                    for (LCPOptions option : session.getLCPPayload().getPayload()) {
+                        switch (option) {
+
+                            case Terminate_Reply:
+                                ServerAcknolegments.add(option);
+                                break;
+                            case Maximum_Receive_Unit:
+                                ServerAcknolegments.add(option);
+                                break;
+                            case Magic_Number:
+                                ServerAcknolegments.add(option);
+                                break;
+                        }
+                    }
+                } else {
+                    throw new CustomExceptions("Server replied with a different idenfifier, packet was discarded. server identifier: " + session.getLCPPayload().getIdentifier()
+                            + "this client identifier: " + this.questions_Identifier);
+                }
+
                 break;
             case Configure_Nak:
 
@@ -125,10 +161,36 @@ public class PPPTransaction {
 
                 break;
             case Terminate_Rq:
-                System.out.println("Terminate Packet Request");
+                if (this.fromServer != null) {
+                    if (this.fromServer.equals(session.getFrom())) {
+
+                        LCPPacket lcppacket = new LCPPacket(LCPCodes.Terminate_Ack, session.getLCPPayload().getIdentifier(), session.getLCPPayload().getPayload()); //if it does match, then create a ack packet
+
+                        PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, lcppacket); // join with the LCP protocou header
+
+                        routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, sessionReply.getBytes()); //tell the server we are finished
+
+                        fromServer = null;
+                        Client_Magic_Number = null;
+                        Server_Magic_Number = null;
+                        ServerAcknolegments = null;
+                        questions_Identifier = 0;
+                        server_Questions_Identifier = 0;
+
+                    }
+                }
                 break;
             case Terminate_Ack:
-                System.out.println("Terminate Packet ack");
+                if (this.fromServer.equals(session.getFrom())) {
+
+                    fromServer = null;
+                    Client_Magic_Number = null;
+                    Server_Magic_Number = null;
+                    ServerAcknolegments = null;
+                    questions_Identifier = 0;
+                    server_Questions_Identifier = 0;
+
+                }
                 break;
             case Code_Rej:
 
@@ -137,10 +199,26 @@ public class PPPTransaction {
 
                 break;
             case Echo_Rq:
+                for (int optionIndex = 0; optionIndex <  session.getLCPPayload().getPayload().length; optionIndex++) {
+                    
+                    if (session.getLCPPayload().getPayload()[optionIndex] == LCPOptions.Echo_Rq) {
+                        LCPOptions reply = LCPOptions.Echo_Reply;
+                        reply.setData(session.getLCPPayload().getPayload()[optionIndex].getData());
+                        reply.setLength(session.getLCPPayload().getPayload()[optionIndex].getLength());
+                        
+                        for (int i = 0; i < this.Client_Magic_Number.toArray().length; i++) {
+                            reply.getData()[i] = this.Client_Magic_Number.toArray()[i];
+                        }
+                        
+                        session.getLCPPayload().getPayload()[optionIndex] = reply;
+                    }
+                }
 
+                routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, session.getBytes());
                 break;
             case Echo_Reply:
-
+                System.out.println(
+                        "Echo Packet Reply");
                 break;
             case Discard_Rq:
 
@@ -173,7 +251,7 @@ public class PPPTransaction {
                 if (discovery.getCode().getFrom() == null) {
                     throw new CustomExceptions("Error the field 'From' of the packet received is null");
                 } else {
-                    this.from = discovery.getCode().getFrom();
+                    this.fromServer = discovery.getCode().getFrom();
                 }
 
                 for (TAGS tag : discovery.getPayload()) {
@@ -200,7 +278,7 @@ public class PPPTransaction {
 
                 PPPoEDiscovery discoveryRequest = new PPPoEDiscovery(PPPCodes.PADR, session, tags);
 
-                routerInterface.sendWanData(EthernetTypes.PPP_Discovery_St, this.from, discoveryRequest.getBytes());
+                routerInterface.sendWanData(EthernetTypes.PPP_Discovery_St, this.fromServer, discoveryRequest.getBytes());
                 this.waitingFor = WaitingFor.Ack;
 
             } else {
@@ -223,7 +301,7 @@ public class PPPTransaction {
                 if (discovery.getCode().getFrom() == null) {
                     throw new CustomExceptions("Error the field 'From' of the packet received is null");
                 } else {
-                    this.from = discovery.getCode().getFrom();
+                    this.fromServer = discovery.getCode().getFrom();
                 }
 
                 for (TAGS tag : discovery.getPayload()) {
@@ -252,12 +330,12 @@ public class PPPTransaction {
             }
         } else if (waitingFor == WaitingFor.Everything) {
             if (discovery.getCode() == PPPCodes.PADT) {
-                if (Arrays.equals(discovery.getCode().getFrom().getMac(), this.from.getMac())) {
+                if (Arrays.equals(discovery.getCode().getFrom().getMac(), this.fromServer.getMac())) {
                     this.SessionStabilished = 0;
                     ACName = null;
                     ACCookie = null;
                     hostUniq = null;
-                    from = null;
+                    fromServer = null;
                 }
             }
         }
@@ -291,17 +369,39 @@ public class PPPTransaction {
         maxUnit.setData(new byte[]{(byte) 0x05, (byte) 0xd4});
 
         LCPOptions magicNumber = LCPOptions.Magic_Number;
-        magicNumber.setData(new byte[]{(byte) 0xc7, (byte) 0x7b, (byte) 0x87, (byte) 0x3d});
+        this.Client_Magic_Number = new MagicNumber(random.nextInt());
+        magicNumber.setData(Client_Magic_Number.toArray());
 
         opt[0] = maxUnit;
         opt[1] = magicNumber;
-        questions_Identifier = 1;
+        questions_Identifier = (byte) random.nextInt();
         LCPPacket packt = new LCPPacket(LCPCodes.Configure_Rq, questions_Identifier, opt);
 
         PPPoESession session = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, packt);
 
-        routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.from, session.getBytes());
+        routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, session.getBytes());
 
+    }
+
+    public void disconnect() throws CustomExceptions {
+
+        if (isConnected) {
+            LCPOptions[] opt = new LCPOptions[1];
+
+            LCPOptions magicNumber = LCPOptions.Magic_Number;
+            this.Client_Magic_Number = new MagicNumber(random.nextInt());
+            magicNumber.setData(Client_Magic_Number.toArray());
+
+            opt[0] = magicNumber;
+            questions_Identifier = (byte) random.nextInt();
+            LCPPacket packt = new LCPPacket(LCPCodes.Terminate_Rq, questions_Identifier, opt);
+
+            PPPoESession session = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, packt);
+
+            routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, session.getBytes());
+        } else {
+            throw new CustomExceptions("Not connected yet");
+        }
     }
 
     private enum WaitingFor {

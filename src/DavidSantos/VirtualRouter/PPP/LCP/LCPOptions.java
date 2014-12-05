@@ -20,7 +20,10 @@ public enum LCPOptions {
 //         8       Address-and-Control-Field-Compression
 
     RESERVED((byte) 0x00),
-    Terminate((byte) 0x00), //for use with termination packets
+    Terminate_Rq((byte) 0x00), //for use with API
+    Echo_Rq((byte) 0x00), //for use with API
+    Terminate_Reply((byte) 0x00), //for use with API
+    Echo_Reply((byte) 0x00), //for use with API
     Maximum_Receive_Unit((byte) 0x01),
     Authentication_Protocol((byte) 0x03),
     Quality_Protocol((byte) 0x04),

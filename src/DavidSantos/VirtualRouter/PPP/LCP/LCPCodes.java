@@ -80,9 +80,9 @@ public enum LCPCodes {
     Code_Rej((byte) 0x07),
     Protocol_Rej((byte) 0x08),
     Echo_Rq((byte) 0x09),
-    Echo_Reply((byte) 0x10),
-    Discard_Rq((byte) 0x11),
-    LinkQuality_Rpt((byte) 0x12);
+    Echo_Reply((byte) 0x0a),
+    Discard_Rq((byte) 0x0b),
+    LinkQuality_Rpt((byte) 0x0c);
 
     private final byte code;
 
@@ -123,13 +123,13 @@ public enum LCPCodes {
             case 0x09:
 
                 return LCPCodes.Echo_Rq;
-            case 0x10:
+            case 0x0a:
 
                 return LCPCodes.Echo_Reply;
-            case 0x11:
+            case 0x0b:
 
                 return LCPCodes.Discard_Rq;
-            case 0x12:
+            case 0x0c:
                 return LCPCodes.LinkQuality_Rpt;
 
             default:

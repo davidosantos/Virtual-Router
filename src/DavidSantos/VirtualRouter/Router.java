@@ -158,7 +158,7 @@ public class Router extends Thread implements RouterInterface {
                                 for (int j = 0; j < length; j++) {
                                     payloadPPPoE[j] = (byte) (payloadSession[i++] & 0xFF);
                                 }
-                                pppTransaction.onReceive_Session_St(new PPPoESession(type, session, length, payloadPPPoE));
+                                pppTransaction.onReceive_Session_St(new PPPoESession(type, session, length, payloadPPPoE, new MACAddress(ethernet.source())));
 
                             } else {
                                 throw new CustomExceptions("PPP Packet not supported, the only version supported is 0x11, version received is: 0x"
@@ -213,7 +213,7 @@ public class Router extends Thread implements RouterInterface {
                     }
 
                 } catch (CustomExceptions ex) {
-                    System.out.println(ex.getMessage());
+                    System.err.println(ex.getMessage());
                     for(StackTraceElement element :   ex.getStackTrace()){
                         System.out.println(element);
                     }

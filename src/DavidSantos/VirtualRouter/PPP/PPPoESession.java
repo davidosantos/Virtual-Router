@@ -5,6 +5,7 @@
 package DavidSantos.VirtualRouter.PPP;
 
 import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
+import DavidSantos.VirtualRouter.MACAddress;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPCodes;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPOptions;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPPacket;
@@ -22,10 +23,10 @@ public class PPPoESession {
     private short session_Id;
     private short length;
     private PPPProtocol_Ids protocol;
-
+    private MACAddress From;
     private LCPPacket LCPPayload;
 
-    public PPPoESession(PPPCodes code, short session_Id, short length, byte[] payload) throws CustomExceptions {
+    public PPPoESession(PPPCodes code, short session_Id, short length, byte[] payload, MACAddress from) throws CustomExceptions {
 
         this.code = code;
         this.session_Id = session_Id;
@@ -40,7 +41,7 @@ public class PPPoESession {
                 short LCPLength = (short) (payload[counter++] << 8 | payload[counter++]);
 
                 List<LCPOptions> LCPOpt = new ArrayList<>();
-                if (LCPCode != LCPCodes.Terminate_Rq && LCPCode != LCPCodes.Terminate_Ack) {
+                if (!(LCPCode == LCPCodes.Terminate_Rq || LCPCode == LCPCodes.Terminate_Ack || LCPCode == LCPCodes.Echo_Rq || LCPCode == LCPCodes.Echo_Reply)) {
                     for (int i = counter; i < payload.length;) {
 //    0                   1                   2                   3
 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -61,12 +62,32 @@ public class PPPoESession {
 
                         LCPOpt.add(option);
                     }
-                } else {
-                    LCPOptions option = LCPOptions.Terminate;
-                    option.setData(new byte[LCPLength - 4]);
-                    for (int j = 0; j < LCPLength - 4; j++) {
-                        option.getData()[j] = (byte) (payload[counter++] & 0xFF);
+                } else { //these has no options fields
+                    LCPOptions option;
+                    switch (LCPCode) {
+                        case Terminate_Rq:
+                            option = LCPOptions.Terminate_Rq;
+                            break;
+                        case Terminate_Ack:
+                            option = LCPOptions.Terminate_Reply;
+                            break;
+                        case Echo_Rq:
+                            option = LCPOptions.Echo_Rq;
+                            break;
+                        case Echo_Reply:
+                            option = LCPOptions.Echo_Reply;
+                            break;
+                        default:
+                            option = null;
                     }
+                    if (option != null) {
+                        option.setData(new byte[LCPLength - 4]);
+                        for (int j = 0; j < LCPLength - 4; j++) {
+                            option.getData()[j] = (byte) (payload[counter++] & 0xFF);
+                        }
+                        LCPOpt.add(option);
+                    }
+
                 }
 
                 LCPOptions[] LCPvalues = new LCPOptions[LCPOpt.size()];
@@ -82,7 +103,7 @@ public class PPPoESession {
                 throw new CustomExceptions("Protocol 0x" + Integer.toHexString((payload[0] << 8 | payload[1]) & 0xFFFF) + " has not yet been implemented");
 
         }
-
+        this.From = from;
     }
 
     /**
@@ -167,12 +188,27 @@ public class PPPoESession {
         bytes.add((byte) (LCPPayload.getLength() >> 8));
         bytes.add((byte) LCPPayload.getLength());
 
-        for (LCPOptions opt : this.LCPPayload.getPayload()) {
-            bytes.add(opt.getType());
-            bytes.add(opt.getLength());
-            if (opt.getData() != null) {
-                for (byte bt : opt.getData()) {
-                    bytes.add(bt);
+        if (LCPPayload.getCode() == LCPCodes.Echo_Reply
+                || LCPPayload.getCode() == LCPCodes.Echo_Rq
+                || LCPPayload.getCode() == LCPCodes.Terminate_Rq
+                || LCPPayload.getCode() == LCPCodes.Terminate_Ack) {
+
+            for (LCPOptions opt : this.LCPPayload.getPayload()) {
+                if (opt.getData() != null) {
+                    for (byte bt : opt.getData()) {
+                        bytes.add(bt);
+                    }
+                }
+            }
+
+        } else {
+            for (LCPOptions opt : this.LCPPayload.getPayload()) {
+                bytes.add(opt.getType());
+                bytes.add(opt.getLength());
+                if (opt.getData() != null) {
+                    for (byte bt : opt.getData()) {
+                        bytes.add(bt);
+                    }
                 }
             }
         }
@@ -196,6 +232,14 @@ public class PPPoESession {
 
     public LCPPacket getLCPPayload() {
         return LCPPayload;
+    }
+
+    public MACAddress getFrom() {
+        return From;
+    }
+
+    public void setFrom(MACAddress From) {
+        this.From = From;
     }
 
 }

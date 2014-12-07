@@ -441,7 +441,7 @@ public class PPPTransaction {
 
     private void startPAP() throws CustomExceptions {
         this.PAP_questions_Identifier = (byte) random.nextInt();
-        PAPPacket pap = new PAPPacket(PAPCodes.PasswordRequest, this.PAP_questions_Identifier, "Username", "Password");
+        PAPPacket pap = new PAPPacket(PAPCodes.PasswordRequest, this.PAP_questions_Identifier, "Username    ", "Password       ");
 
         PPPoESession session = new PPPoESession(PPPProtocol_Ids.PAP, PPPCodes.Session_Data, SessionStabilished, pap);
 

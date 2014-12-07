@@ -99,8 +99,8 @@ public enum LCPOptions {
 
     public void setData(byte[] data) {
         this.data = data;
-        if (this.length == 0) {
+        
             this.length = (byte) ((byte) data.length + 2); //+2 type and length
-        }
+        
     }
 }

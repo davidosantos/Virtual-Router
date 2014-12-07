@@ -63,7 +63,7 @@ public class Router extends Thread implements RouterInterface {
         for (PcapIf device : alldevs) {
             String description
                     = (device.getDescription() != null) ? device.getDescription()
-                            : "No description available";
+                    : "No description available";
             System.out.printf("#%d: %s [%s]\n", i++, device.getName(), description);
         }
 
@@ -134,11 +134,11 @@ public class Router extends Thread implements RouterInterface {
 
                             byte[] payloadSession = ethernet.getPayload();
 
-                            System.out.println("Erray: ");
-                            int count_Session = 0;
-                            for (byte tb : payloadSession) {
-                                System.out.println(count_Session++ + ":" + Integer.toHexString(tb & 0xFF));
-                            }
+//                            System.out.println("Erray: ");
+//                            int count_Session = 0;
+//                            for (byte tb : payloadSession) {
+//                                System.out.println(count_Session++ + ":" + Integer.toHexString(tb & 0xFF));
+//                            }
 
 //    1                   2                   3
 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -151,8 +151,8 @@ public class Router extends Thread implements RouterInterface {
                             if (payloadSession[0] == 0x11) { //0x11 is version and type 1 and 1
                                 PPPCodes type = PPPCodes.getTypeName(payloadSession[1] & 0xFF);
                                 type.setFrom(new MACAddress(packet.getHeader(ethernet).source()));
-                                short session = (short) ((short) payloadSession[2] & 0xFF << 8 | payloadSession[3] & 0xFF);
-                                short length = (short) ((short) payloadSession[4] & 0xFF << 8 | payloadSession[5] & 0xFF);
+                                short session = twoBytesToShort(payloadSession[2], payloadSession[3]);
+                                short length = twoBytesToShort(payloadSession[4], payloadSession[5]);
                                 byte[] payloadPPPoE = new byte[length];
                                 int i = 6;
                                 for (int j = 0; j < length; j++) {
@@ -173,11 +173,11 @@ public class Router extends Thread implements RouterInterface {
 
                             byte[] payload = ethernet.getPayload();
 
-                            System.out.println("Erray: ");
-                            int count = 0;
-                            for (byte tb : payload) {
-                                System.out.println(count++ + ":" + Integer.toHexString(tb & 0xFF));
-                            }
+//                            System.out.println("Erray: ");
+//                            int count = 0;
+//                            for (byte tb : payload) {
+//                                System.out.println(count++ + ":" + Integer.toHexString(tb & 0xFF));
+//                            }
 
 //    1                   2                   3
 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -188,15 +188,16 @@ public class Router extends Thread implements RouterInterface {
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                             // refer to https://tools.ietf.org/html/rfc2516
                             if (payload[0] == 0x11) { //0x11 is version and type 1 and 1
-                                PPPCodes type = PPPCodes.getTypeName(payload[1] & 0xFF);
-                                type.setFrom(new MACAddress(packet.getHeader(ethernet).source()));
-                                short session = (short) ((short) payload[2] & 0xFF << 8 | payload[3] & 0xFF);
-                                short length = (short) ((short) payload[4] & 0xFF << 8 | payload[5] & 0xFF);
+                                PPPCodes type = PPPCodes.getTypeName(payload[1] & 0xFF);  //1 is type                              
+                                short session = twoBytesToShort(payload[2], payload[3]); //2, 3 session
+                                short length = twoBytesToShort(payload[4], payload[5]);
                                 byte[] payloadPPPoE = new byte[length];
                                 int i = 6;
                                 for (int j = 0; j < length; j++) {
                                     payloadPPPoE[j] = (byte) (payload[i++] & 0xFF);
                                 }
+
+                                type.setFrom(new MACAddress(packet.getHeader(ethernet).source()));
                                 pppTransaction.onReceive_Discovery_St(new PPPoEDiscovery(type, session, length, payloadPPPoE));
 
                             } else {
@@ -214,7 +215,7 @@ public class Router extends Thread implements RouterInterface {
 
                 } catch (CustomExceptions ex) {
                     System.err.println(ex.getMessage());
-                    for(StackTraceElement element :   ex.getStackTrace()){
+                    for (StackTraceElement element : ex.getStackTrace()) {
                         System.out.println(element);
                     }
                 }
@@ -234,6 +235,10 @@ public class Router extends Thread implements RouterInterface {
 
     }
 
+    private short twoBytesToShort(byte b1, byte b2) {
+        return (short) ((b1 << 8) | (b2 & 0xFF));
+    }
+
     static void send(byte[] data) {
         WanPort.sendPacket(data);
     }
@@ -250,8 +255,9 @@ public class Router extends Thread implements RouterInterface {
     public void sendWanEthernetBroadcast(EthernetTypes type, byte[] data) throws CustomExceptions {
         // be ware of MTU
         MACAddress dest = new MACAddress(new byte[]{(byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff});
-        MACAddress source = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2B, (byte) 0xCB, (byte) 0xEE, (byte) 0x4E, (byte) 0x39});
+        MACAddress source = new MACAddress(new byte[]{(byte) 0x00, (byte) 0x1e, (byte) 0xc9, (byte) 0x23, (byte) 0x0a, (byte) 0x04});
         //78:2B:CB:EE:4E:39 pc do serviço
+        //00:1E:C9:23:0A:04 pc de casa
         byte[] toSend = new byte[dest.mac.length + source.mac.length + data.length + 2];// +2 for type field
         int byteCount = 0;
         for (byte bt : dest.mac) {
@@ -284,7 +290,8 @@ public class Router extends Thread implements RouterInterface {
     @Override
     public void sendWanData(EthernetTypes type, MACAddress to, byte[] data) throws CustomExceptions {
         // be ware of MTU
-        MACAddress source = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2B, (byte) 0xCB, (byte) 0xEE, (byte) 0x4E, (byte) 0x39});
+        //MACAddress source = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2B, (byte) 0xCB, (byte) 0xEE, (byte) 0x4E, (byte) 0x39});
+        MACAddress source = new MACAddress(new byte[]{(byte) 0x00, (byte) 0x1e, (byte) 0xc9, (byte) 0x23, (byte) 0x0a, (byte) 0x04});
 
         byte[] toSend = new byte[to.mac.length + source.mac.length + data.length + 2];// +2 for type field
         int byteCount = 0;

@@ -1,4 +1,4 @@
-/* 
+/*
  * This project is for learning purposes only, therefore there is no warranty it is going to work as expected without errors.
  * use it at your own risk.
  */
@@ -9,6 +9,8 @@ import DavidSantos.VirtualRouter.MACAddress;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPCodes;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPOptions;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPPacket;
+import DavidSantos.VirtualRouter.PPP.PAP.PAPCodes;
+import DavidSantos.VirtualRouter.PPP.PAP.PAPPacket;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,6 +27,7 @@ public class PPPoESession {
     private PPPProtocol_Ids protocol;
     private MACAddress From;
     private LCPPacket LCPPayload;
+    private PAPPacket PAPPayload;
 
     public PPPoESession(PPPCodes code, short session_Id, short length, byte[] payload, MACAddress from) throws CustomExceptions {
 
@@ -38,10 +41,13 @@ public class PPPoESession {
             case LCP:
                 LCPCodes LCPCode = LCPCodes.getCode(payload[counter++] & 0xFF);
                 byte LCPIdentifier = payload[counter++];
-                short LCPLength = (short) (payload[counter++] << 8 | payload[counter++]);
+                short LCPLength = (short) (payload[counter++] << 8 | payload[counter++] & 0xFF);
 
                 List<LCPOptions> LCPOpt = new ArrayList<>();
-                if (!(LCPCode == LCPCodes.Terminate_Rq || LCPCode == LCPCodes.Terminate_Ack || LCPCode == LCPCodes.Echo_Rq || LCPCode == LCPCodes.Echo_Reply)) {
+                if (!(LCPCode == LCPCodes.Terminate_Rq
+                        || LCPCode == LCPCodes.Terminate_Ack
+                        || LCPCode == LCPCodes.Echo_Rq
+                        || LCPCode == LCPCodes.Echo_Reply)) {
                     for (int i = counter; i < payload.length;) {
 //    0                   1                   2                   3
 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -82,9 +88,11 @@ public class PPPoESession {
                     }
                     if (option != null) {
                         option.setData(new byte[LCPLength - 4]);
-                        for (int j = 0; j < LCPLength - 4; j++) {
+                        option.setLength((byte) LCPLength);
+                        for (int j = 0; j < option.getLength() - 4; j++) {
                             option.getData()[j] = (byte) (payload[counter++] & 0xFF);
                         }
+
                         LCPOpt.add(option);
                     }
 
@@ -97,6 +105,24 @@ public class PPPoESession {
                 }
 
                 LCPPayload = new LCPPacket(LCPCode, LCPIdentifier, LCPLength, LCPvalues);
+
+                break;
+
+            case PAP:
+                PAPCodes PAPCode = PAPCodes.getCodeName((byte) (payload[counter++] & 0xFF));
+                byte PAPIdentifier = payload[counter++];
+                short PAPLength = (short) (payload[counter++] << 8 | payload[counter++] & 0xFF);
+                byte messageLength = (byte) (payload[counter++] & 0xFF);
+                
+                byte[] message = new byte[messageLength];
+                
+                for(int i =0; i < messageLength ; i++){
+                    message[i] = (byte) (payload[counter++] & 0xFF);
+                }
+                
+                this.PAPPayload = new PAPPacket(PAPCode, PAPIdentifier, PAPLength, message);
+                
+                
 
                 break;
             default:
@@ -144,6 +170,15 @@ public class PPPoESession {
         this.session_Id = session;
         this.LCPPayload = options;
         this.setLength((short) (this.getBytes().length - 6)); //exclude the headers size
+    
+    }
+    
+    PPPoESession(PPPProtocol_Ids protocol, PPPCodes pppCodes, short session, PAPPacket pap) {
+        this.protocol = protocol;
+        this.code = pppCodes;
+        this.session_Id = session;
+        this.PAPPayload = pap;
+        this.setLength((short) (this.getBytes().length - 6)); //exclude the headers size
     }
 
     public PPPCodes getCode() {
@@ -183,34 +218,57 @@ public class PPPoESession {
         bytes.add((byte) (protocol.getType() >> 8));
         bytes.add((byte) protocol.getType());
 
-        bytes.add(LCPPayload.getCode().getCode());
-        bytes.add(LCPPayload.getIdentifier());
-        bytes.add((byte) (LCPPayload.getLength() >> 8));
-        bytes.add((byte) LCPPayload.getLength());
+        switch (protocol) {
+            case LCP:
+                bytes.add(LCPPayload.getCode().getCode());
+                bytes.add(LCPPayload.getIdentifier());
 
-        if (LCPPayload.getCode() == LCPCodes.Echo_Reply
-                || LCPPayload.getCode() == LCPCodes.Echo_Rq
-                || LCPPayload.getCode() == LCPCodes.Terminate_Rq
-                || LCPPayload.getCode() == LCPCodes.Terminate_Ack) {
+                if (LCPPayload.getCode() == LCPCodes.Echo_Reply
+                        || LCPPayload.getCode() == LCPCodes.Echo_Rq
+                        || LCPPayload.getCode() == LCPCodes.Terminate_Rq
+                        || LCPPayload.getCode() == LCPCodes.Terminate_Ack) {
 
-            for (LCPOptions opt : this.LCPPayload.getPayload()) {
-                if (opt.getData() != null) {
-                    for (byte bt : opt.getData()) {
-                        bytes.add(bt);
+                    for (LCPOptions opt : this.LCPPayload.getPayload()) {
+                        bytes.add((byte) 0); // the length is 2 bytes, those packets provide only one, that's adding one zero
+                        bytes.add(opt.getLength());
+                        if (opt.getData() != null) {
+                            for (byte bt : opt.getData()) {
+                                bytes.add(bt);
+                            }
+                        }
+                    }
+
+                } else {
+
+                    bytes.add((byte) (LCPPayload.getLength() >> 8));
+                    bytes.add((byte) LCPPayload.getLength());
+
+                    for (LCPOptions opt : this.LCPPayload.getPayload()) {
+                        bytes.add(opt.getType());
+                        bytes.add(opt.getLength());
+                        if (opt.getData() != null) {
+                            for (byte bt : opt.getData()) {
+                                bytes.add(bt);
+                            }
+                        }
                     }
                 }
-            }
+                break;
+            case PAP:
 
-        } else {
-            for (LCPOptions opt : this.LCPPayload.getPayload()) {
-                bytes.add(opt.getType());
-                bytes.add(opt.getLength());
-                if (opt.getData() != null) {
-                    for (byte bt : opt.getData()) {
-                        bytes.add(bt);
-                    }
+                bytes.add(PAPPayload.getCode().getCode());
+                bytes.add(PAPPayload.getIdentifier());
+                bytes.add((byte) (PAPPayload.getLength() >> 8));
+                bytes.add((byte) PAPPayload.getLength());
+                bytes.add((byte) PAPPayload.getUserName().length);
+                for (byte userNamseChar : PAPPayload.getUserName()) {
+                    bytes.add(userNamseChar);
                 }
-            }
+                bytes.add((byte) PAPPayload.getPassword().length);
+                for (byte userNamseChar : PAPPayload.getPassword()) {
+                    bytes.add(userNamseChar);
+                }
+                break;
         }
 
         byte[] ret = new byte[bytes.size()];
@@ -240,6 +298,14 @@ public class PPPoESession {
 
     public void setFrom(MACAddress From) {
         this.From = From;
+    }
+
+    public PAPPacket getPAPPayload() {
+        return PAPPayload;
+    }
+
+    public void setPAPPayload(PAPPacket PAPPayload) {
+        this.PAPPayload = PAPPayload;
     }
 
 }

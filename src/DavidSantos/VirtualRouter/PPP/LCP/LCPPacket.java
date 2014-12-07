@@ -45,6 +45,18 @@ public class LCPPacket {
         this.length = calculateLength(payload);
         this.payload = payload;
     }
+    
+    /**
+     * This constructor is meant to be used with terminate and echo packets
+     * @param code
+     * @param identifier
+     * @param payload
+     */
+    public LCPPacket(LCPCodes code, byte identifier, LCPOptions payload) {
+        this.code = code;
+        this.identifier = identifier;
+        this.payload = new LCPOptions[] {payload};
+    }
 
     private short calculateLength(LCPOptions[] opt) {
         short calculatedlength = 0;

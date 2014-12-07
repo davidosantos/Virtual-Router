@@ -17,4 +17,6 @@ public interface RouterInterface {
     public void sendWanData(EthernetTypes type, MACAddress to, byte[] data) throws CustomExceptions;
 
     public void startPPPoEService();
+    
+    public String[] getPPPoEUser();
 }

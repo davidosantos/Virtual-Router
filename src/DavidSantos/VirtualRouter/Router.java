@@ -9,9 +9,12 @@ import DavidSantos.VirtualRouter.PPP.PPPTransaction;
 import DavidSantos.VirtualRouter.PPP.PPPCodes;
 import DavidSantos.VirtualRouter.PPP.PPPoEDiscovery;
 import DavidSantos.VirtualRouter.PPP.PPPoESession;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.jnetpcap.Pcap;
 import org.jnetpcap.PcapIf;
 import org.jnetpcap.packet.PcapPacket;
@@ -34,10 +37,13 @@ public class Router extends Thread implements RouterInterface {
     static Pcap WanPort;
     int InterfaceMTU;
 
+    private RouterImplementation routerImpl;
+
     PPPTransaction pppTransaction;
 
-    public Router() {
+    public Router(RouterImplementation routerImpl) {
         pppTransaction = new PPPTransaction(this);
+        this.routerImpl = routerImpl;
     }
 
     @Override
@@ -139,7 +145,6 @@ public class Router extends Thread implements RouterInterface {
 //                            for (byte tb : payloadSession) {
 //                                System.out.println(count_Session++ + ":" + Integer.toHexString(tb & 0xFF));
 //                            }
-
 //    1                   2                   3
 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -178,7 +183,6 @@ public class Router extends Thread implements RouterInterface {
 //                            for (byte tb : payload) {
 //                                System.out.println(count++ + ":" + Integer.toHexString(tb & 0xFF));
 //                            }
-
 //    1                   2                   3
 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -218,6 +222,8 @@ public class Router extends Thread implements RouterInterface {
                     for (StackTraceElement element : ex.getStackTrace()) {
                         System.out.println(element);
                     }
+                } catch (UnknownHostException ex) {
+                    Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
                 }
 
             }
@@ -312,4 +318,10 @@ public class Router extends Thread implements RouterInterface {
 
         WanPort.sendPacket(toSend);
     }
+
+    @Override
+    public String[] getPPPoEUser() {
+        return routerImpl.getPPPoEUser();
+    }
+
 }

@@ -6,11 +6,17 @@ package DavidSantos.VirtualRouter.PPP;
 
 import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
 import DavidSantos.VirtualRouter.MACAddress;
+import DavidSantos.VirtualRouter.PPP.IPCP.IPCPCodes;
+import DavidSantos.VirtualRouter.PPP.IPCP.IPCPOptions;
+import DavidSantos.VirtualRouter.PPP.IPCP.IPCPPacket;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPCodes;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPOptions;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPPacket;
 import DavidSantos.VirtualRouter.PPP.PAP.PAPCodes;
 import DavidSantos.VirtualRouter.PPP.PAP.PAPPacket;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,8 +34,9 @@ public class PPPoESession {
     private MACAddress From;
     private LCPPacket LCPPayload;
     private PAPPacket PAPPayload;
+    private IPCPPacket IPCPPayload;
 
-    public PPPoESession(PPPCodes code, short session_Id, short length, byte[] payload, MACAddress from) throws CustomExceptions {
+    public PPPoESession(PPPCodes code, short session_Id, short length, byte[] payload, MACAddress from) throws CustomExceptions, UnknownHostException {
 
         this.code = code;
         this.session_Id = session_Id;
@@ -49,14 +56,14 @@ public class PPPoESession {
                         || LCPCode == LCPCodes.Echo_Rq
                         || LCPCode == LCPCodes.Echo_Reply)) {
                     for (int i = counter; i < payload.length;) {
-//    0                   1                   2                   3
-//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |     Type      |    Length     |      Maximum-Receive-Unit     |
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//
-//
-//   Type 1 byte  Length  1 byte
+                        //    0                   1                   2                   3
+                        //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+                        //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                        //   |     Type      |    Length     |      Maximum-Receive-Unit     |
+                        //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                        //
+                        //
+                        //   Type 1 byte  Length  1 byte
 
                         LCPOptions option = LCPOptions.getTypeName(payload[i++] & 0xFF);
                         option.setLength((byte) (payload[i++]));
@@ -113,16 +120,41 @@ public class PPPoESession {
                 byte PAPIdentifier = payload[counter++];
                 short PAPLength = (short) (payload[counter++] << 8 | payload[counter++] & 0xFF);
                 byte messageLength = (byte) (payload[counter++] & 0xFF);
-                
+
                 byte[] message = new byte[messageLength];
-                
-                for(int i =0; i < messageLength ; i++){
+
+                for (int i = 0; i < messageLength; i++) {
                     message[i] = (byte) (payload[counter++] & 0xFF);
                 }
-                
+
                 this.PAPPayload = new PAPPacket(PAPCode, PAPIdentifier, PAPLength, message);
-                
-                
+
+                break;
+
+            case IPv4:
+                IPCPCodes IPCPCode = IPCPCodes.getCode((byte) (payload[counter++] & 0xFF));
+                byte IPCPIdentifier = payload[counter++];
+                short IPCPLength = (short) (payload[counter++] << 8 | payload[counter++] & 0xFF);
+
+                List<IPCPOptions> ipcpOptions = new ArrayList<>();
+
+                for (; counter < IPCPLength;) {
+                    IPCPOptions IPCPoption = IPCPOptions.getOptionName((byte) (payload[counter++] & 0xFF));
+                    byte IPCPOptionLength = (byte) (payload[counter++] & 0xFF);
+                    IPCPoption.setLength(IPCPOptionLength);
+                    byte[] ip = new byte[IPCPOptionLength - 2];
+
+                    for (int i = 0; i < ip.length; i++) {
+                        ip[i] = (byte) (payload[counter++] & 0xFF);
+                    }
+
+                    IPCPoption.setData(InetAddress.getByAddress(ip));
+                    ipcpOptions.add(IPCPoption);
+                }
+
+                IPCPOptions[] options = new IPCPOptions[ipcpOptions.size()];
+
+                this.IPCPPayload = new IPCPPacket(IPCPCode, IPCPIdentifier, IPCPLength, options);
 
                 break;
             default:
@@ -170,14 +202,22 @@ public class PPPoESession {
         this.session_Id = session;
         this.LCPPayload = options;
         this.setLength((short) (this.getBytes().length - 6)); //exclude the headers size
-    
+
     }
-    
+
     PPPoESession(PPPProtocol_Ids protocol, PPPCodes pppCodes, short session, PAPPacket pap) {
         this.protocol = protocol;
         this.code = pppCodes;
         this.session_Id = session;
         this.PAPPayload = pap;
+        this.setLength((short) (this.getBytes().length - 6)); //exclude the headers size
+    }
+    
+    PPPoESession(PPPProtocol_Ids protocol, PPPCodes pppCodes, short session, IPCPPacket ipcp) {
+        this.protocol = protocol;
+        this.code = pppCodes;
+        this.session_Id = session;
+        this.IPCPPayload = ipcp;
         this.setLength((short) (this.getBytes().length - 6)); //exclude the headers size
     }
 
@@ -267,6 +307,21 @@ public class PPPoESession {
                 bytes.add((byte) PAPPayload.getPassword().length);
                 for (byte userNamseChar : PAPPayload.getPassword()) {
                     bytes.add(userNamseChar);
+                }
+                break;
+            case IPCP:
+
+                bytes.add(IPCPPayload.getCode().getCode());
+                bytes.add(IPCPPayload.getIdentifier());
+                bytes.add((byte) (IPCPPayload.getLength() >> 8));
+                bytes.add((byte) IPCPPayload.getLength());
+
+                for (IPCPOptions option : IPCPPayload.getPayload()) {
+                    bytes.add(option.getOption());
+                    bytes.add(option.getLength());
+                    for (byte ip : option.getData().getAddress()) {
+                        bytes.add(ip);
+                    }
                 }
                 break;
         }

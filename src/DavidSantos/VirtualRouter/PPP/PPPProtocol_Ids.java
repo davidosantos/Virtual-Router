@@ -32,7 +32,8 @@ public enum PPPProtocol_Ids {
     PAP((short) 0xc023),
     LQR((short) 0xc025),
     CHAP((short) 0xc223),
-    IPv4((short) 0x0021);
+    IPv4((short) 0x0021),
+    IPCP((short) 0x8021);
 
     private final short protocol;
 
@@ -55,6 +56,8 @@ public enum PPPProtocol_Ids {
                 return PPPProtocol_Ids.CHAP;
             case 0x0021:
                 return PPPProtocol_Ids.IPv4;
+            case 0x8021:
+                return PPPProtocol_Ids.IPCP;
 
             default:
                 throw new CustomExceptions("PPP Protocol Unknown: 0x" + Integer.toHexString(Number));

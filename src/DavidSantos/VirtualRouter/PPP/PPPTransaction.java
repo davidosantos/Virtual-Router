@@ -7,6 +7,9 @@ package DavidSantos.VirtualRouter.PPP;
 import DavidSantos.VirtualRouter.EthernetTypes;
 import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
 import DavidSantos.VirtualRouter.MACAddress;
+import DavidSantos.VirtualRouter.PPP.IPCP.IPCPCodes;
+import DavidSantos.VirtualRouter.PPP.IPCP.IPCPOptions;
+import DavidSantos.VirtualRouter.PPP.IPCP.IPCPPacket;
 import DavidSantos.VirtualRouter.PPP.LCP.AuthenticationType;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPCodes;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPOptions;
@@ -15,12 +18,12 @@ import DavidSantos.VirtualRouter.PPP.LCP.MagicNumber;
 import DavidSantos.VirtualRouter.PPP.PAP.PAPCodes;
 import DavidSantos.VirtualRouter.PPP.PAP.PAPPacket;
 import DavidSantos.VirtualRouter.RouterInterface;
-import com.sun.org.apache.bcel.internal.Constants;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
-import javax.print.DocFlavor;
 
 /**
  *
@@ -46,11 +49,12 @@ public class PPPTransaction {
     private byte LCP_questions_Identifier;
     private byte LCP_server_Questions_Identifier;
     List<LCPOptions> supportedOpitions = new ArrayList<>();
-    
-    
+
     //PAP
     private byte PAP_questions_Identifier;
     
+    //IPCP
+    private byte IPCP_questions_Identifier;
 
     boolean isConnected = false;
 
@@ -83,7 +87,7 @@ public class PPPTransaction {
         return opt;
     }
 
-    public void onReceive_Session_St(PPPoESession session) throws CustomExceptions {
+    public void onReceive_Session_St(PPPoESession session) throws CustomExceptions, UnknownHostException {
         switch (session.getProtocol()) {
 
             case LCP:
@@ -159,18 +163,9 @@ public class PPPTransaction {
                         // must macth up LCP_questions_Identifier
                         if (session.getLCPPayload().getIdentifier() == this.LCP_questions_Identifier) {
                             for (LCPOptions option : session.getLCPPayload().getPayload()) {
-                                switch (option) {
 
-                                    case Terminate_Reply:
-                                        ServerAcknolegments.add(option);
-                                        break;
-                                    case Maximum_Receive_Unit:
-                                        ServerAcknolegments.add(option);
-                                        break;
-                                    case Magic_Number:
-                                        ServerAcknolegments.add(option);
-                                        break;
-                                }
+                                ServerAcknolegments.add(option);
+
                             }
 
                         } else {
@@ -272,6 +267,7 @@ public class PPPTransaction {
                 if (session.getPAPPayload().getIdentifier() == this.PAP_questions_Identifier) {
                     if (session.getPAPPayload().getCode() == PAPCodes.PasswordAck) {
                         this.isConnected = true;
+                        startIPCP();
                     } else {
                         throw new CustomExceptions("PAP: Connection failed, server message: " + session.getPAPPayload().getMessage());
                     }
@@ -280,6 +276,12 @@ public class PPPTransaction {
                     throw new CustomExceptions("PAP: Server replied with a different idenfifier, packet was discarded. server identifier: " + (session.getPAPPayload().getIdentifier() & 0xFF)
                             + " this client identifier: " + (this.PAP_questions_Identifier & 0xFF));
                 }
+                break;
+                
+            case IPv4 : 
+                
+                System.out.println("New IPCP Packet");
+                
                 break;
         }
 
@@ -441,12 +443,48 @@ public class PPPTransaction {
 
     private void startPAP() throws CustomExceptions {
         this.PAP_questions_Identifier = (byte) random.nextInt();
-        PAPPacket pap = new PAPPacket(PAPCodes.PasswordRequest, this.PAP_questions_Identifier, "Username    ", "Password       ");
+        PAPPacket pap = new PAPPacket(PAPCodes.PasswordRequest, this.PAP_questions_Identifier, routerInterface.getPPPoEUser()[0], routerInterface.getPPPoEUser()[1]);
 
         PPPoESession session = new PPPoESession(PPPProtocol_Ids.PAP, PPPCodes.Session_Data, SessionStabilished, pap);
 
         routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, session.getBytes());
     }
+    
+    
+     private void startIPCP() throws CustomExceptions, UnknownHostException {
+
+         IPCPOptions[] opt = new IPCPOptions[3];
+
+        IPCPOptions ip = IPCPOptions.IPAddress;
+        ip.setData(InetAddress.getByName("0.0.0.0"));
+        ip.setLength((byte)6);
+        
+        IPCPOptions primaryDNS = IPCPOptions.PrimaryDNSServerAddress;
+        primaryDNS.setData(InetAddress.getByName("0.0.0.0"));
+        primaryDNS.setLength((byte)6);
+        
+        IPCPOptions secondaryDNS = IPCPOptions.SecondaryDNSServerAddress;
+        secondaryDNS.setData(InetAddress.getByName("0.0.0.0"));
+        secondaryDNS.setLength((byte)6);
+
+        
+        this.Client_Magic_Number = new MagicNumber(random.nextInt());
+        
+
+        opt[0] = ip;
+        opt[1] = primaryDNS;
+        opt[2] = secondaryDNS;
+        
+        IPCP_questions_Identifier = (byte) random.nextInt();
+        
+         IPCPPacket packt = new IPCPPacket(IPCPCodes.Configure_Rq, IPCP_questions_Identifier, opt);
+
+        PPPoESession session = new PPPoESession(PPPProtocol_Ids.IPCP, PPPCodes.Session_Data, SessionStabilished, packt);
+
+        routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, session.getBytes());
+
+    }
+    
 
     public void disconnect() throws CustomExceptions {
 

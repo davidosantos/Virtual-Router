@@ -261,7 +261,7 @@ public class Router extends Thread implements RouterInterface {
     public void sendWanEthernetBroadcast(EthernetTypes type, byte[] data) throws CustomExceptions {
         // be ware of MTU
         MACAddress dest = new MACAddress(new byte[]{(byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff});
-        MACAddress source = new MACAddress(new byte[]{(byte) 0x00, (byte) 0x1e, (byte) 0xc9, (byte) 0x23, (byte) 0x0a, (byte) 0x04});
+        MACAddress source = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2b, (byte) 0xcb, (byte) 0xee, (byte) 0x4e, (byte) 0x39});
         //78:2B:CB:EE:4E:39 pc do serviço
         //00:1E:C9:23:0A:04 pc de casa
         byte[] toSend = new byte[dest.mac.length + source.mac.length + data.length + 2];// +2 for type field
@@ -296,8 +296,8 @@ public class Router extends Thread implements RouterInterface {
     @Override
     public void sendWanData(EthernetTypes type, MACAddress to, byte[] data) throws CustomExceptions {
         // be ware of MTU
-        //MACAddress source = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2B, (byte) 0xCB, (byte) 0xEE, (byte) 0x4E, (byte) 0x39});
-        MACAddress source = new MACAddress(new byte[]{(byte) 0x00, (byte) 0x1e, (byte) 0xc9, (byte) 0x23, (byte) 0x0a, (byte) 0x04});
+        MACAddress source = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2B, (byte) 0xCB, (byte) 0xEE, (byte) 0x4E, (byte) 0x39});
+        //MACAddress source = new MACAddress(new byte[]{(byte) 0x00, (byte) 0x1e, (byte) 0xc9, (byte) 0x23, (byte) 0x0a, (byte) 0x04});
 
         byte[] toSend = new byte[to.mac.length + source.mac.length + data.length + 2];// +2 for type field
         int byteCount = 0;

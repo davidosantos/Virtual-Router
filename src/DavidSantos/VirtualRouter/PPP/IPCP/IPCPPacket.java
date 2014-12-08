@@ -32,8 +32,8 @@ public class IPCPPacket {
     private short getCalculatedLength(){
         short bytes = 4;
         for(IPCPOptions option : this.payload){
-            bytes += 1; //lenth of the data one byte
-            bytes += option.getData().getAddress().length;
+            bytes += 2; //Option type and length filds are two bytes
+            bytes += option.getIP().getAddress().length;
         }
         return bytes;
     }

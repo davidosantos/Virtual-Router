@@ -33,6 +33,7 @@ public enum PPPProtocol_Ids {
     LQR((short) 0xc025),
     CHAP((short) 0xc223),
     IPv4((short) 0x0021),
+    CCP((short) 0x80fd),
     IPCP((short) 0x8021);
 
     private final short protocol;
@@ -41,26 +42,29 @@ public enum PPPProtocol_Ids {
         return protocol;
     }
 
-    public static PPPProtocol_Ids getTypeName(int Number) throws CustomExceptions {
+    public static PPPProtocol_Ids getTypeName(short Number) throws CustomExceptions {
 
         switch (Number) {
-            case 0xc001:
-                return PPPProtocol_Ids.Padding;
-            case 0xc021:
-                return PPPProtocol_Ids.LCP;
-            case 0xc023:
-                return PPPProtocol_Ids.PAP;
-            case 0xc025:
-                return PPPProtocol_Ids.LQR;
-            case 0xc223:
-                return PPPProtocol_Ids.CHAP;
-            case 0x0021:
+            case (short) 0x0021:
                 return PPPProtocol_Ids.IPv4;
-            case 0x8021:
+            case (short) 0xc001:
+                return PPPProtocol_Ids.Padding;
+            case (short) 0xc021:
+                return PPPProtocol_Ids.LCP;
+            case (short) 0xc023:
+                return PPPProtocol_Ids.PAP;
+            case (short) 0xc025:
+                return PPPProtocol_Ids.LQR;
+            case (short) 0xc223:
+                return PPPProtocol_Ids.CHAP;
+            
+            case (short) 0x8021:
                 return PPPProtocol_Ids.IPCP;
+            case (short) 0x80fd:
+                return PPPProtocol_Ids.CCP;
 
             default:
-                throw new CustomExceptions("PPP Protocol Unknown: 0x" + Integer.toHexString(Number));
+                throw new CustomExceptions("PPP Protocol Unknown: 0x" + Integer.toHexString(Number & 0xFFFF));
         }
 
     }

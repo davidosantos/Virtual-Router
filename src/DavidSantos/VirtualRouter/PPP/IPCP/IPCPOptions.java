@@ -25,7 +25,7 @@ public enum IPCPOptions {
     private final byte option;
     
     private byte length;
-    private InetAddress data;
+    private InetAddress ip;
 
     private IPCPOptions(byte option) {
         this.option = option;
@@ -56,12 +56,13 @@ public enum IPCPOptions {
         }
     }
 
-    public InetAddress getData() {
-        return data;
+    public InetAddress getIP() {
+        return ip;
     }
 
-    public void setData(InetAddress data) {
-        this.data = data;
+    public void setIP(InetAddress data) {
+        this.ip = data;
+        this.length = (byte) (data.getAddress().length+2);
     }
 
     public byte getOption() {

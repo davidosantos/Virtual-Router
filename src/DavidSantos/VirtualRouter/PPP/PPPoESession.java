@@ -6,6 +6,9 @@ package DavidSantos.VirtualRouter.PPP;
 
 import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
 import DavidSantos.VirtualRouter.MACAddress;
+import DavidSantos.VirtualRouter.PPP.CCP.CCPCodes;
+import DavidSantos.VirtualRouter.PPP.CCP.CCPOptions;
+import DavidSantos.VirtualRouter.PPP.CCP.CCPPacket;
 import DavidSantos.VirtualRouter.PPP.IPCP.IPCPCodes;
 import DavidSantos.VirtualRouter.PPP.IPCP.IPCPOptions;
 import DavidSantos.VirtualRouter.PPP.IPCP.IPCPPacket;
@@ -14,7 +17,6 @@ import DavidSantos.VirtualRouter.PPP.LCP.LCPOptions;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPPacket;
 import DavidSantos.VirtualRouter.PPP.PAP.PAPCodes;
 import DavidSantos.VirtualRouter.PPP.PAP.PAPPacket;
-import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -35,6 +37,7 @@ public class PPPoESession {
     private LCPPacket LCPPayload;
     private PAPPacket PAPPayload;
     private IPCPPacket IPCPPayload;
+    private CCPPacket CCPPayload;
 
     public PPPoESession(PPPCodes code, short session_Id, short length, byte[] payload, MACAddress from) throws CustomExceptions, UnknownHostException {
 
@@ -42,7 +45,7 @@ public class PPPoESession {
         this.session_Id = session_Id;
         this.length = length;
         int counter = 0;
-        this.protocol = PPPProtocol_Ids.getTypeName((short) (payload[counter++] << 8 | payload[counter++]) & 0xFFFF);
+        this.protocol = PPPProtocol_Ids.getTypeName((short) ((short) (payload[counter++] << 8 | payload[counter++] & 0xFF) & 0xFFFF));
 
         switch (protocol) {
             case LCP:
@@ -131,7 +134,7 @@ public class PPPoESession {
 
                 break;
 
-            case IPv4:
+            case IPCP:
                 IPCPCodes IPCPCode = IPCPCodes.getCode((byte) (payload[counter++] & 0xFF));
                 byte IPCPIdentifier = payload[counter++];
                 short IPCPLength = (short) (payload[counter++] << 8 | payload[counter++] & 0xFF);
@@ -148,15 +151,49 @@ public class PPPoESession {
                         ip[i] = (byte) (payload[counter++] & 0xFF);
                     }
 
-                    IPCPoption.setData(InetAddress.getByAddress(ip));
+                    IPCPoption.setIP(InetAddress.getByAddress(ip)); //might throw host unknown exception due to Ip compression option is not an ip
+
                     ipcpOptions.add(IPCPoption);
                 }
 
                 IPCPOptions[] options = new IPCPOptions[ipcpOptions.size()];
 
-                this.IPCPPayload = new IPCPPacket(IPCPCode, IPCPIdentifier, IPCPLength, options);
+                for (int i = 0; i < ipcpOptions.size(); i++) {
+                    options[i] = ipcpOptions.get(i);
+                }
 
+                this.IPCPPayload = new IPCPPacket(IPCPCode, IPCPIdentifier, IPCPLength, options);
                 break;
+            case CCP:
+                CCPCodes CCPCode = CCPCodes.getCode((byte) (payload[counter++] & 0xFF));
+                byte CCPIdentifier = payload[counter++];
+                short CCPLength = (short) (payload[counter++] << 8 | payload[counter++] & 0xFF);
+
+                List<CCPOptions> ccpOptions = new ArrayList<>();
+
+                for (; counter < CCPLength;) {
+                    CCPOptions CCPoption = CCPOptions.getOptionName((byte) (payload[counter++] & 0xFF));
+                    byte CCPOptionLength = (byte) (payload[counter++] & 0xFF);
+                    CCPoption.setLength(CCPOptionLength);
+                    byte[] data = new byte[CCPOptionLength - 2];
+
+                    for (int i = 0; i < data.length; i++) {
+                        data[i] = (byte) (payload[counter++] & 0xFF);
+                    }
+                    CCPoption.setData(data);
+
+                    ccpOptions.add(CCPoption);
+                }
+
+                CCPOptions[] ccpoptions = new CCPOptions[ccpOptions.size()];
+
+                for (int i = 0; i < ccpOptions.size(); i++) {
+                    ccpoptions[i] = ccpOptions.get(i);
+                }
+
+                this.CCPPayload = new CCPPacket(CCPCode, CCPIdentifier, CCPLength, ccpoptions);
+                break;
+
             default:
                 throw new CustomExceptions("Protocol 0x" + Integer.toHexString((payload[0] << 8 | payload[1]) & 0xFFFF) + " has not yet been implemented");
 
@@ -212,7 +249,7 @@ public class PPPoESession {
         this.PAPPayload = pap;
         this.setLength((short) (this.getBytes().length - 6)); //exclude the headers size
     }
-    
+
     PPPoESession(PPPProtocol_Ids protocol, PPPCodes pppCodes, short session, IPCPPacket ipcp) {
         this.protocol = protocol;
         this.code = pppCodes;
@@ -319,8 +356,23 @@ public class PPPoESession {
                 for (IPCPOptions option : IPCPPayload.getPayload()) {
                     bytes.add(option.getOption());
                     bytes.add(option.getLength());
-                    for (byte ip : option.getData().getAddress()) {
+                    for (byte ip : option.getIP().getAddress()) {
                         bytes.add(ip);
+                    }
+                }
+                break;
+            case CCP:
+
+                bytes.add(CCPPayload.getCode().getCode());
+                bytes.add(CCPPayload.getIdentifier());
+                bytes.add((byte) (CCPPayload.getLength() >> 8));
+                bytes.add((byte) CCPPayload.getLength());
+
+                for (CCPOptions option : CCPPayload.getPayload()) {
+                    bytes.add(option.getOption());
+                    bytes.add(option.getLength());
+                    for (byte bt : option.getData()) {
+                        bytes.add(bt);
                     }
                 }
                 break;
@@ -361,6 +413,22 @@ public class PPPoESession {
 
     public void setPAPPayload(PAPPacket PAPPayload) {
         this.PAPPayload = PAPPayload;
+    }
+
+    public IPCPPacket getIPCPPayload() {
+        return IPCPPayload;
+    }
+
+    public void setIPCPPayload(IPCPPacket IPCPPayload) {
+        this.IPCPPayload = IPCPPayload;
+    }
+
+    public CCPPacket getCCPPayload() {
+        return CCPPayload;
+    }
+
+    public void setCCPPayload(CCPPacket CCPPayload) {
+        this.CCPPayload = CCPPayload;
     }
 
 }

@@ -30,6 +30,31 @@ public class CCPPacket {
         this.length = length;
         this.payload = payload;
     }
+    public CCPPacket(CCPCodes code, byte identifier, CCPOptions[] payload) {
+        this.code = code;
+        this.identifier = identifier;
+        this.payload = payload;
+        this.length = calculateLength(payload);
+    }
+    /**
+     * This constructor is meant to be used with terminate and echo packets
+     * @param code
+     * @param identifier
+     * @param payload
+     */
+    public CCPPacket(CCPCodes code, byte identifier, CCPOptions payload) {
+        this.code = code;
+        this.identifier = identifier;
+        this.payload = new CCPOptions[] {payload};
+    }
+     private short calculateLength(CCPOptions[] opt) {
+        short calculatedlength = 0;
+        for (CCPOptions option : opt) {
+            calculatedlength += option.getLength();
+        }
+        return calculatedlength += 4; // +4 for code, indentifier and length
+    }
+
 
     public CCPCodes getCode() {
         return code;

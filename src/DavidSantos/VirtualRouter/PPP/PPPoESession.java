@@ -39,6 +39,8 @@ public class PPPoESession {
     private IPCPPacket IPCPPayload;
     private CCPPacket CCPPayload;
 
+    private byte[] BytesPayload;
+
     public PPPoESession(PPPCodes code, short session_Id, short length, byte[] payload, MACAddress from) throws CustomExceptions, UnknownHostException {
 
         this.code = code;
@@ -171,27 +173,64 @@ public class PPPoESession {
 
                 List<CCPOptions> ccpOptions = new ArrayList<>();
 
-                for (; counter < CCPLength;) {
-                    CCPOptions CCPoption = CCPOptions.getOptionName((byte) (payload[counter++] & 0xFF));
-                    byte CCPOptionLength = (byte) (payload[counter++] & 0xFF);
-                    CCPoption.setLength(CCPOptionLength);
-                    byte[] data = new byte[CCPOptionLength - 2];
+                if (!(CCPCode == CCPCode.Terminate_Rq
+                        || CCPCode == CCPCode.Terminate_Ack)) {
 
-                    for (int i = 0; i < data.length; i++) {
-                        data[i] = (byte) (payload[counter++] & 0xFF);
+                    for (; counter < CCPLength;) {
+                        CCPOptions CCPoption = CCPOptions.getOptionName((byte) (payload[counter++] & 0xFF));
+                        byte CCPOptionLength = (byte) (payload[counter++] & 0xFF);
+                        CCPoption.setLength(CCPOptionLength);
+                        byte[] data = new byte[CCPOptionLength - 2];
+
+                        for (int i = 0; i < data.length; i++) {
+                            data[i] = (byte) (payload[counter++] & 0xFF);
+                        }
+                        CCPoption.setData(data);
+
+                        ccpOptions.add(CCPoption);
                     }
-                    CCPoption.setData(data);
 
-                    ccpOptions.add(CCPoption);
+                    CCPOptions[] ccpoptions = new CCPOptions[ccpOptions.size()];
+
+                    for (int i = 0; i < ccpOptions.size(); i++) {
+                        ccpoptions[i] = ccpOptions.get(i);
+                    }
+
+                    this.CCPPayload = new CCPPacket(CCPCode, CCPIdentifier, CCPLength, ccpoptions);
+
+                } else { //these has no options fields
+                    CCPOptions option;
+                    switch (CCPCode) {
+                        case Terminate_Rq:
+                            option = CCPOptions.Terminate_Rq;
+                            break;
+                        case Terminate_Ack:
+                            option = CCPOptions.Terminate_Reply;
+                            break;
+
+                        default:
+                            option = null;
+                    }
+                    if (option != null) {
+                        option.setData(new byte[CCPLength - 4]);
+                        option.setLength((byte) CCPLength);
+                        for (int j = 0; j < option.getLength() - 4; j++) {
+                            option.getData()[j] = (byte) (payload[counter++] & 0xFF);
+                        }
+
+                        ccpOptions.add(option);
+                    }
+
                 }
 
-                CCPOptions[] ccpoptions = new CCPOptions[ccpOptions.size()];
+                CCPOptions[] CCPvalues = new CCPOptions[ccpOptions.size()];
 
                 for (int i = 0; i < ccpOptions.size(); i++) {
-                    ccpoptions[i] = ccpOptions.get(i);
+                    CCPvalues[i] = ccpOptions.get(i);
                 }
 
-                this.CCPPayload = new CCPPacket(CCPCode, CCPIdentifier, CCPLength, ccpoptions);
+                CCPPayload = new CCPPacket(CCPCode, CCPIdentifier, CCPLength, CCPvalues);
+
                 break;
 
             default:
@@ -258,6 +297,22 @@ public class PPPoESession {
         this.setLength((short) (this.getBytes().length - 6)); //exclude the headers size
     }
 
+    PPPoESession(PPPProtocol_Ids protocol, PPPCodes pppCodes, short session, CCPPacket ccp) {
+        this.protocol = protocol;
+        this.code = pppCodes;
+        this.session_Id = session;
+        this.CCPPayload = ccp;
+        this.setLength((short) (this.getBytes().length - 6)); //exclude the headers size
+    }
+
+    PPPoESession(PPPProtocol_Ids protocol, PPPCodes pppCodes, short session, byte[] BytesPayload) {
+        this.protocol = protocol;
+        this.code = pppCodes;
+        this.session_Id = session;
+        this.BytesPayload = BytesPayload;
+        this.setLength((short) (this.getBytes().length - 6)); //exclude the headers size
+    }
+
     public PPPCodes getCode() {
         return code;
     }
@@ -296,6 +351,13 @@ public class PPPoESession {
         bytes.add((byte) protocol.getType());
 
         switch (protocol) {
+            case IPv4:
+                
+               for(byte bt : this.BytesPayload){
+                   bytes.add(bt);
+               } 
+
+                break;
             case LCP:
                 bytes.add(LCPPayload.getCode().getCode());
                 bytes.add(LCPPayload.getIdentifier());
@@ -365,16 +427,34 @@ public class PPPoESession {
 
                 bytes.add(CCPPayload.getCode().getCode());
                 bytes.add(CCPPayload.getIdentifier());
-                bytes.add((byte) (CCPPayload.getLength() >> 8));
-                bytes.add((byte) CCPPayload.getLength());
 
-                for (CCPOptions option : CCPPayload.getPayload()) {
-                    bytes.add(option.getOption());
-                    bytes.add(option.getLength());
-                    for (byte bt : option.getData()) {
-                        bytes.add(bt);
+                if (CCPPayload.getCode() == CCPCodes.Terminate_Rq
+                        || CCPPayload.getCode() == CCPCodes.Terminate_Ack) {
+
+                    for (CCPOptions opt : this.CCPPayload.getPayload()) {
+                        bytes.add((byte) 0); // the length is 2 bytes, those packets provide only one, that's adding one zero
+                        bytes.add(opt.getLength());
+                        if (opt.getData() != null) {
+                            for (byte bt : opt.getData()) {
+                                bytes.add(bt);
+                            }
+                        }
+                    }
+
+                } else {
+
+                    bytes.add((byte) (CCPPayload.getLength() >> 8));
+                    bytes.add((byte) CCPPayload.getLength());
+
+                    for (CCPOptions option : CCPPayload.getPayload()) {
+                        bytes.add(option.getOption());
+                        bytes.add(option.getLength());
+                        for (byte bt : option.getData()) {
+                            bytes.add(bt);
+                        }
                     }
                 }
+
                 break;
         }
 

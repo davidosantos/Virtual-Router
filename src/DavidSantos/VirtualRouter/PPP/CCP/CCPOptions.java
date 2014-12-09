@@ -21,7 +21,9 @@ public enum CCPOptions {
     MicrosoftCCP((byte) 0x12),
     GandalfFZA((byte) 0x13),
     V42biscompression((byte) 0x14),
-    BSDLZWCompress((byte) 0x15);
+    BSDLZWCompress((byte) 0x15), 
+    Terminate_Rq((byte) 0x00), 
+    Terminate_Reply((byte) 0x00);
 
     private final byte option;
 

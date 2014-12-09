@@ -136,7 +136,6 @@ public class Router extends Thread implements RouterInterface {
 
                             break;
                         case PPP_Session_St:
-                            System.out.println("PPP_Session_St");
 
                             byte[] payloadSession = ethernet.getPayload();
 
@@ -145,13 +144,13 @@ public class Router extends Thread implements RouterInterface {
 //                            for (byte tb : payloadSession) {
 //                                System.out.println(count_Session++ + ":" + Integer.toHexString(tb & 0xFF));
 //                            }
-//    1                   2                   3
-//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |  VER  | TYPE  |      CODE     |          SESSION_ID           |
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |            LENGTH             |           payload             ~
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                            //    1                   2                   3
+                            //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                            //   |  VER  | TYPE  |      CODE     |          SESSION_ID           |
+                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                            //   |            LENGTH             |           payload             ~
+                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                             // refer to https://tools.ietf.org/html/rfc2516
                             if (payloadSession[0] == 0x11) { //0x11 is version and type 1 and 1
                                 PPPCodes type = PPPCodes.getTypeName(payloadSession[1] & 0xFF);
@@ -183,13 +182,13 @@ public class Router extends Thread implements RouterInterface {
 //                            for (byte tb : payload) {
 //                                System.out.println(count++ + ":" + Integer.toHexString(tb & 0xFF));
 //                            }
-//    1                   2                   3
-//    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |  VER  | TYPE  |      CODE     |          SESSION_ID           |
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//   |            LENGTH             |           payload             ~
-//   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                            //    1                   2                   3
+                            //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                            //   |  VER  | TYPE  |      CODE     |          SESSION_ID           |
+                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                            //   |            LENGTH             |           payload             ~
+                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                             // refer to https://tools.ietf.org/html/rfc2516
                             if (payload[0] == 0x11) { //0x11 is version and type 1 and 1
                                 PPPCodes type = PPPCodes.getTypeName(payload[1] & 0xFF);  //1 is type                              
@@ -322,6 +321,15 @@ public class Router extends Thread implements RouterInterface {
     @Override
     public String[] getPPPoEUser() {
         return routerImpl.getPPPoEUser();
+    }
+    
+    
+    public void sendBytes(){
+        try {
+            pppTransaction.sendEncapsulatedData(new byte[] {(byte)0x45,(byte) 0x00 ,(byte) 0x00 ,(byte) 0x33 ,(byte) 0xa4 ,(byte) 0xb6 ,(byte) 0x40 ,(byte) 0x00 ,(byte) 0x40 ,(byte) 0x11 ,(byte) 0xee ,(byte) 0x06 ,(byte) 0xc0 ,(byte) 0xa8 ,(byte) 0x00 ,(byte) 0x12 ,(byte) 0xac ,(byte) 0x1b ,(byte) 0x3b ,(byte) 0x27 ,(byte) 0xe1 ,(byte) 0xe7 ,(byte) 0x00 ,(byte) 0x35 ,(byte) 0x00 ,(byte) 0x1f ,(byte) 0xac ,(byte) 0x2f ,(byte) 0xeb ,(byte) 0x29 ,(byte) 0x01 ,(byte) 0x00 ,(byte) 0x00 , (byte)0x01 , (byte)0x00 , (byte)0x00 ,(byte) 0x00 ,(byte) 0x00 ,(byte) 0x00 ,(byte) 0x00 ,(byte) 0x05 ,(byte) 0x6c ,(byte) 0x6f ,(byte) 0x63 ,(byte) 0x61 ,(byte) 0x6c ,(byte) 0x00 ,(byte) 0x00 ,(byte) 0x06 ,(byte) 0x00 ,(byte) 0x01  });
+        } catch (CustomExceptions ex) {
+            Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
 }

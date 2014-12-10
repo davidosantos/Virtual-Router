@@ -11,7 +11,6 @@ import DavidSantos.VirtualRouter.PPP.PPPoEDiscovery;
 import DavidSantos.VirtualRouter.PPP.PPPoESession;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,13 +36,14 @@ public class Router extends Thread implements RouterInterface {
     static Pcap WanPort;
     int InterfaceMTU;
 
-    private RouterImplementation routerImpl;
+    private final RouterImplementation routerImpl;
 
     PPPTransaction pppTransaction;
 
     public Router(RouterImplementation routerImpl) {
-        pppTransaction = new PPPTransaction(this);
         this.routerImpl = routerImpl;
+        pppTransaction = new PPPTransaction(this);
+        this.setName("Router");
     }
 
     @Override
@@ -69,7 +69,7 @@ public class Router extends Thread implements RouterInterface {
         for (PcapIf device : alldevs) {
             String description
                     = (device.getDescription() != null) ? device.getDescription()
-                    : "No description available";
+                            : "No description available";
             System.out.printf("#%d: %s [%s]\n", i++, device.getName(), description);
         }
 
@@ -100,7 +100,8 @@ public class Router extends Thread implements RouterInterface {
                     if (packet.hasHeader(ethernet)) {
                         ethernet = packet.getHeader(ethernet);
                     } else {
-                        throw new CustomExceptions("No Ethernet Header for packet: \n" + packet.toHexdump());
+                        return;
+                        //throw new CustomExceptions("No Ethernet Header for packet: \n" + packet.toHexdump());
                     }
 
                     EthernetHeader ethernetHeader = new EthernetHeader(new MACAddress(packet.getHeader(ethernet).destination()),
@@ -173,8 +174,6 @@ public class Router extends Thread implements RouterInterface {
 
                         case PPP_Discovery_St:
 
-                            System.out.println("PPP_Discovery_St");
-
                             byte[] payload = ethernet.getPayload();
 
 //                            System.out.println("Erray: ");
@@ -220,9 +219,11 @@ public class Router extends Thread implements RouterInterface {
                     System.err.println(ex.getMessage());
                     for (StackTraceElement element : ex.getStackTrace()) {
                         System.out.println(element);
+
                     }
+                    routerImpl.routerErrorReport(ex.getMessage(), ex.getStackTrace());
                 } catch (UnknownHostException ex) {
-                    Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
+                    routerImpl.routerErrorReport(ex.getMessage(), ex.getStackTrace());
                 }
 
             }
@@ -255,6 +256,14 @@ public class Router extends Thread implements RouterInterface {
     public RouterInterface getRouter() {
         return this;
     }
+    
+    public void disconnect(){
+        try {
+            pppTransaction.disconnect();
+        } catch (CustomExceptions ex) {
+            routerImpl.routerErrorReport(ex.getMessage(), ex.getStackTrace());
+        }
+    }
 
     @Override
     public void sendWanEthernetBroadcast(EthernetTypes type, byte[] data) throws CustomExceptions {
@@ -286,9 +295,13 @@ public class Router extends Thread implements RouterInterface {
     @Override
     public void startPPPoEService() {
         try {
+
+            
             pppTransaction.start();
+
         } catch (CustomExceptions ex) {
             System.out.println(ex.getMessage());
+            this.routerImpl.routerErrorReport(ex.getMessage(), ex.getStackTrace());
         }
     }
 
@@ -322,14 +335,18 @@ public class Router extends Thread implements RouterInterface {
     public String[] getPPPoEUser() {
         return routerImpl.getPPPoEUser();
     }
-    
-    
-    public void sendBytes(){
+
+    public void sendBytes() {
         try {
-            pppTransaction.sendEncapsulatedData(new byte[] {(byte)0x45,(byte) 0x00 ,(byte) 0x00 ,(byte) 0x33 ,(byte) 0xa4 ,(byte) 0xb6 ,(byte) 0x40 ,(byte) 0x00 ,(byte) 0x40 ,(byte) 0x11 ,(byte) 0xee ,(byte) 0x06 ,(byte) 0xc0 ,(byte) 0xa8 ,(byte) 0x00 ,(byte) 0x12 ,(byte) 0xac ,(byte) 0x1b ,(byte) 0x3b ,(byte) 0x27 ,(byte) 0xe1 ,(byte) 0xe7 ,(byte) 0x00 ,(byte) 0x35 ,(byte) 0x00 ,(byte) 0x1f ,(byte) 0xac ,(byte) 0x2f ,(byte) 0xeb ,(byte) 0x29 ,(byte) 0x01 ,(byte) 0x00 ,(byte) 0x00 , (byte)0x01 , (byte)0x00 , (byte)0x00 ,(byte) 0x00 ,(byte) 0x00 ,(byte) 0x00 ,(byte) 0x00 ,(byte) 0x05 ,(byte) 0x6c ,(byte) 0x6f ,(byte) 0x63 ,(byte) 0x61 ,(byte) 0x6c ,(byte) 0x00 ,(byte) 0x00 ,(byte) 0x06 ,(byte) 0x00 ,(byte) 0x01  });
+            pppTransaction.sendEncapsulatedData(new byte[]{(byte) 0x45, (byte) 0x00, (byte) 0x00, (byte) 0x33, (byte) 0xa4, (byte) 0xb6, (byte) 0x40, (byte) 0x00, (byte) 0x40, (byte) 0x11, (byte) 0xee, (byte) 0x06, (byte) 0xc0, (byte) 0xa8, (byte) 0x00, (byte) 0x12, (byte) 0xac, (byte) 0x1b, (byte) 0x3b, (byte) 0x27, (byte) 0xe1, (byte) 0xe7, (byte) 0x00, (byte) 0x35, (byte) 0x00, (byte) 0x1f, (byte) 0xac, (byte) 0x2f, (byte) 0xeb, (byte) 0x29, (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x05, (byte) 0x6c, (byte) 0x6f, (byte) 0x63, (byte) 0x61, (byte) 0x6c, (byte) 0x00, (byte) 0x00, (byte) 0x06, (byte) 0x00, (byte) 0x01});
         } catch (CustomExceptions ex) {
             Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+
+    @Override
+    public void info(String info) {
+        routerImpl.info(info);
     }
 
 }

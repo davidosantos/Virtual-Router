@@ -19,4 +19,7 @@ public interface RouterInterface {
     public void startPPPoEService();
     
     public String[] getPPPoEUser();
+    
+    public void info(String info);
+    
 }

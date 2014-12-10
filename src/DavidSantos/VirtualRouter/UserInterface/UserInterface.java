@@ -80,14 +80,15 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
         jLabel1 = new javax.swing.JLabel();
         jLabel2 = new javax.swing.JLabel();
         jButton_ping = new javax.swing.JButton();
+        jButton_Disconnect = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
         jTextArea.setBackground(new java.awt.Color(0, 0, 0));
         jTextArea.setColumns(20);
-        jTextArea.setFont(new java.awt.Font("Dialog", 1, 18)); // NOI18N
         jTextArea.setForeground(new java.awt.Color(255, 255, 255));
         jTextArea.setRows(5);
+        jTextArea.setText("Start");
         jScrollPane1.setViewportView(jTextArea);
 
         jButton_PPPoE.setText("Start PPPoE");
@@ -108,6 +109,13 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
             }
         });
 
+        jButton_Disconnect.setText("disconnect");
+        jButton_Disconnect.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton_DisconnectActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
@@ -116,41 +124,43 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 952, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addContainerGap(34, Short.MAX_VALUE))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(layout.createSequentialGroup()
-                                .addGap(0, 0, Short.MAX_VALUE)
-                                .addComponent(jLabel2)
-                                .addGap(199, 199, 199))
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(jLabel1)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(jTextField_Password, javax.swing.GroupLayout.PREFERRED_SIZE, 152, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                    .addComponent(jTextField_user, javax.swing.GroupLayout.PREFERRED_SIZE, 152, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                .addGap(35, 35, 35)))
+                            .addComponent(jLabel1)
+                            .addComponent(jLabel2))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(jTextField_user, javax.swing.GroupLayout.PREFERRED_SIZE, 152, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jTextField_Password, javax.swing.GroupLayout.PREFERRED_SIZE, 152, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 814, Short.MAX_VALUE)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(jButton_ping)
-                            .addComponent(jButton_PPPoE))
-                        .addGap(80, 80, 80))))
+                            .addComponent(jButton_PPPoE)
+                            .addComponent(jButton_Disconnect))
+                        .addGap(67, 67, 67))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jScrollPane1)
+                        .addContainerGap())))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addContainerGap(13, Short.MAX_VALUE)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jTextField_user, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel1)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                            .addComponent(jTextField_user, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel1)))
                     .addComponent(jButton_ping))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jButton_PPPoE)
-                    .addComponent(jTextField_Password, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel2))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 442, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(jTextField_Password, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(jLabel2))
+                    .addComponent(jButton_PPPoE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jButton_Disconnect)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 852, Short.MAX_VALUE)
                 .addContainerGap())
         );
 
@@ -164,6 +174,10 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
     private void jButton_pingActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton_pingActionPerformed
         router.sendBytes();
     }//GEN-LAST:event_jButton_pingActionPerformed
+
+    private void jButton_DisconnectActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton_DisconnectActionPerformed
+        router.disconnect();
+    }//GEN-LAST:event_jButton_DisconnectActionPerformed
 
     /**
      * @param args the command line arguments
@@ -201,6 +215,7 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton jButton_Disconnect;
     private javax.swing.JButton jButton_PPPoE;
     private javax.swing.JButton jButton_ping;
     private javax.swing.JLabel jLabel1;
@@ -382,5 +397,19 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
     @Override
     public String[] getPPPoEUser() {
         return new String[]{jTextField_user.getText(), jTextField_Password.getText()};
+    }
+
+    @Override
+    public void routerErrorReport(String error, StackTraceElement[] where) {
+        this.jTextArea.append("Router Error: " + error + "\n");
+//        this.jTextArea.append("at \n");
+//        for(StackTraceElement element : where){
+//            this.jTextArea.append(element.toString() + "\n");
+//        }
+    }
+
+    @Override
+    public void info(String info) {
+        this.jTextArea.append( info + "\n");
     }
 }

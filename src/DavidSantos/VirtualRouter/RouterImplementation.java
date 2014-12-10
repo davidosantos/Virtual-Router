@@ -11,4 +11,11 @@ package DavidSantos.VirtualRouter;
  */
 public interface RouterImplementation {
     public String[] getPPPoEUser();
+    
+    public void routerErrorReport(String error, StackTraceElement[] where);
+    
+    public void info(String info);
+    
+    
+    
 }

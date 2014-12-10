@@ -152,6 +152,8 @@ public class PPPTransaction {
 
                                         routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, sessionReply.getBytes()); //tell the server we are ok
 
+                                        routerInterface.info("PPPoE LCP started");
+
                                         // we are ready to start authentication process here, if authentication type is chap, then we should just wait for chap packet, the server will surely send
                                         // when authetication is successful set isConnected to true
                                         switch (AuthType) {
@@ -182,7 +184,9 @@ public class PPPTransaction {
                                 }
 
                                 if (option == LCPOptions.Magic_Number) {
-                                    this.Server_Magic_Number = new MagicNumber((int) (option.getData()[0] << 24 | option.getData()[1] << 16 | option.getData()[2] << 8 | option.getData()[3]) & 0xFFFFFFFF);
+                                    //bytes[0] << 24 | (bytes[1] & 0xFF) << 16 | (bytes[2] & 0xFF) << 8 | (bytes[3] & 0xFF)
+                                    this.Server_Magic_Number = new MagicNumber(option.getData()[0] << 24 | (option.getData()[1]&0xff) << 16 | (option.getData()[2]&0xFF) << 8 | (option.getData()[3]&0xFF) );
+                                    routerInterface.info("PPPoE LCP server magic number: 0x" + Integer.toHexString(this.Server_Magic_Number.getNumer()));
                                 }
 
                             }
@@ -226,7 +230,7 @@ public class PPPTransaction {
                                         PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, lcppacket); // join with the LCP protocou header
 
                                         routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, sessionReply.getBytes()); //tell the server we are finished
-
+                                        routerInterface.info("Terminate Request from " + session.getFrom().toString());
                                         Client_Magic_Number = null;
                                         Server_Magic_Number = null;
                                         ServerAcknolegments.clear();
@@ -240,11 +244,10 @@ public class PPPTransaction {
                         break;
                     case Terminate_Ack:
                         if (this.fromServer.equals(session.getFrom())) {
-
-                            fromServer = null;
+                            routerInterface.info("PPPoE LCP Terminate ack from " + session.getFrom().toString());
                             Client_Magic_Number = null;
                             Server_Magic_Number = null;
-                            ServerAcknolegments = null;
+                            ServerAcknolegments.clear();
                             LCP_questions_Identifier = 0;
                             LCP_server_Questions_Identifier = 0;
                             this.isConnected = false;
@@ -258,31 +261,32 @@ public class PPPTransaction {
 
                         break;
                     case Echo_Rq:
-                        for (int optionIndex = 0; optionIndex < session.getLCPPayload().getPayload().length; optionIndex++) {
+                        if (this.isConnected) {
+                            for (int optionIndex = 0; optionIndex < session.getLCPPayload().getPayload().length; optionIndex++) {
 
-                            if (session.getLCPPayload().getPayload()[optionIndex] == LCPOptions.Echo_Rq) {
-                                LCPOptions reply = LCPOptions.Echo_Reply;
+                                if (session.getLCPPayload().getPayload()[optionIndex] == LCPOptions.Echo_Rq) {
+                                    LCPOptions reply = LCPOptions.Echo_Reply;
 
-                                reply.setData(session.getLCPPayload().getPayload()[optionIndex].getData());
-                                reply.setLength(session.getLCPPayload().getPayload()[optionIndex].getLength());
+                                    reply.setData(session.getLCPPayload().getPayload()[optionIndex].getData());
+                                    reply.setLength(session.getLCPPayload().getPayload()[optionIndex].getLength());
 
-                                for (int i = 0; i < this.Client_Magic_Number.toArray().length; i++) {
-                                    reply.getData()[i] = this.Client_Magic_Number.toArray()[i];
+                                    for (int i = 0; i < this.Client_Magic_Number.toArray().length; i++) {
+                                        reply.getData()[i] = this.Client_Magic_Number.toArray()[i];
+                                    }
+
+                                    LCPPacket lcppacket = new LCPPacket(LCPCodes.Echo_Reply, session.getLCPPayload().getIdentifier(), reply); //if it does match, then create a ack packet
+
+                                    PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, lcppacket); // join with the LCP protocou header
+
+                                    routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, sessionReply.getBytes());
+                                    break;
                                 }
-
-                                LCPPacket lcppacket = new LCPPacket(LCPCodes.Echo_Reply, session.getLCPPayload().getIdentifier(), reply); //if it does match, then create a ack packet
-
-                                PPPoESession sessionReply = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, lcppacket); // join with the LCP protocou header
-
-                                routerInterface.sendWanData(EthernetTypes.PPP_Session_St, this.fromServer, sessionReply.getBytes());
-                                break;
                             }
                         }
 
                         break;
                     case Echo_Reply:
-                        System.out.println(
-                                "Echo Packet Reply");
+                        
                         break;
                     case Discard_Rq:
 
@@ -340,7 +344,7 @@ public class PPPTransaction {
                                 if (option == IPCPOptions.IPAddress) { // this is the gateway, because gateways comes in request packet
 
                                     this.gateway = option.getIP();
-
+                                    routerInterface.info("Gateway obtido: " + this.gateway.toString());
                                     IPCPPacket IPCPReply = new IPCPPacket(IPCPCodes.Configure_Ack, IPCP_server_Questions_Identifier, session.getIPCPPayload().getPayload());
 
                                     PPPoESession IPCPSession = new PPPoESession(PPPProtocol_Ids.IPCP, PPPCodes.Session_Data, SessionStabilished, IPCPReply);
@@ -356,6 +360,36 @@ public class PPPTransaction {
                         break;
                     case Configure_Ack:
                         if (this.IPCP_questions_Identifier == session.getIPCPPayload().getIdentifier()) {
+                            for (IPCPOptions option : session.getIPCPPayload().getPayload()) {
+                                switch (option) {
+                                    case IPAddresses:
+                                        break;
+                                    case IPCompressionProtocol:
+                                        break;
+                                    case IPAddress:
+
+                                        this.ip = option.getIP();
+                                        routerInterface.info("IP obtido: " + this.ip.toString());
+                                        break;
+                                    case MobileIPv4:
+                                        break;
+                                    case PrimaryDNSServerAddress:
+                                        this.primaryDNS = option.getIP();
+                                        routerInterface.info("Primary DNS obtido: " + this.primaryDNS.toString());
+                                        break;
+                                    case PrimaryNBNSServerAddress:
+                                        break;
+                                    case SecondaryDNSServerAddress:
+                                        this.secondaryDNS = option.getIP();
+                                        routerInterface.info("Secondary DNS obtido: " + this.secondaryDNS.toString());
+                                        break;
+                                    case SecondaryNBNSServerAddress:
+                                        break;
+                                    default:
+                                        throw new AssertionError(option.name());
+
+                                }
+                            }
 
                         } else {
                             throw new CustomExceptions("IPCP ack: Server replied with a different idenfifier, packet was discarded. server identifier: " + (session.getIPCPPayload().getIdentifier() & 0xFF)
@@ -386,40 +420,7 @@ public class PPPTransaction {
 
                         if (this.IPCP_questions_Identifier == session.getIPCPPayload().getIdentifier()) {
 
-                            for (IPCPOptions option : session.getIPCPPayload().getPayload()) {
-                                switch (option) {
-                                    case IPAddresses:
-                                        break;
-                                    case IPCompressionProtocol:
-                                        break;
-                                    case IPAddress:
-
-                                        this.ip = option.getIP();
-
-                                        break;
-                                    case MobileIPv4:
-                                        break;
-                                    case PrimaryDNSServerAddress:
-                                        this.primaryDNS = option.getIP();
-                                        break;
-                                    case PrimaryNBNSServerAddress:
-                                        break;
-                                    case SecondaryDNSServerAddress:
-                                        this.secondaryDNS = option.getIP();
-                                        break;
-                                    case SecondaryNBNSServerAddress:
-                                        break;
-                                    default:
-                                        throw new AssertionError(option.name());
-
-                                }
-                            }
-
-                        } else {
-                            throw new CustomExceptions("IPCP ack: Server replied with a different idenfifier, packet was discarded. server identifier: " + (session.getIPCPPayload().getIdentifier() & 0xFF)
-                                    + " this client identifier: " + (this.IPCP_questions_Identifier & 0xFF));
                         }
-
                         break;
 
                     case Code_Rej:
@@ -530,14 +531,13 @@ public class PPPTransaction {
                 }
 
                 for (TAGS tag : discovery.getPayload()) {
-                    if (tag == TAGS.AC_Name) {
-                        this.ACName = tag;
-                    }
-                }
 
-                for (TAGS tag : discovery.getPayload()) {
-                    if (tag == TAGS.AC_Cookie) {
-                        this.ACCookie = tag;
+                    switch (tag) {
+                        case AC_Name:
+                            this.ACName = tag;
+                            break;
+                        case AC_Cookie:
+                            this.ACCookie = tag;
                     }
                 }
 
@@ -570,6 +570,7 @@ public class PPPTransaction {
                             throw new CustomExceptions("Error when treating PADS the field HostUniq of the packet received is differs from the sent, sent was: "
                                     + Arrays.toString(dataTagHostUniq) + " received is: " + Arrays.toString(tag.getData()));
                         }
+                        break;
                     }
                 }
 
@@ -581,9 +582,8 @@ public class PPPTransaction {
 
                 for (TAGS tag : discovery.getPayload()) {
                     if (tag == TAGS.AC_Cookie) {
-                        if (Arrays.equals(this.ACCookie.getData(), tag.getData())) {
-                            //Ok Cookie Match
-                        } else {
+                        if (!Arrays.equals(this.ACCookie.getData(), tag.getData())) {
+
                             throw new CustomExceptions("Invalid cookie received: " + Arrays.toString(tag.getData()) + " From " + discovery.getCode().getFrom().toString()
                                     + " The right is: " + Arrays.toString(this.ACCookie.getData()));
                         }
@@ -593,7 +593,7 @@ public class PPPTransaction {
                     throw new CustomExceptions("There was a error, session returned is 0: " + discovery.getCode().name() + " From " + discovery.getCode().getFrom().toString());
                 } else {
                     this.SessionStabilished = discovery.getSession_Id();
-                    System.out.println("Session is : " + this.SessionStabilished);
+
                     waitingFor = WaitingFor.Everything;
 
                     startLCP();
@@ -607,6 +607,7 @@ public class PPPTransaction {
             if (discovery.getCode() == PPPCodes.PADT) {
 
                 if (Arrays.equals(discovery.getCode().getFrom().getMac(), this.fromServer.getMac())) {
+                    routerInterface.info("PPPoE Terminate session 0x" + Integer.toHexString(SessionStabilished));
                     this.SessionStabilished = 0;
                     ACName = null;
                     ACCookie = null;
@@ -619,6 +620,9 @@ public class PPPTransaction {
     }
 
     public void start() throws CustomExceptions {
+        
+        if(!this.isConnected){
+        routerInterface.info("PPPoE is starting");
         TAGS[] tags = new TAGS[2];
         TAGS hostunique = TAGS.Host_Uniq;
         hostunique.setData(dataTagHostUniq);
@@ -635,11 +639,14 @@ public class PPPTransaction {
 
         routerInterface.sendWanEthernetBroadcast(EthernetTypes.PPP_Discovery_St, discoveryReply.getBytes());
         this.waitingFor = WaitingFor.Offer;
+        } else {
+            throw new CustomExceptions("Router is already connected");
+        }
 
     }
 
     private void startLCP() throws CustomExceptions {
-
+        routerInterface.info("PPPoE LCP is starting");
         LCPOptions[] opt = new LCPOptions[2];
 
         LCPOptions maxUnit = LCPOptions.Maximum_Receive_Unit;
@@ -661,6 +668,7 @@ public class PPPTransaction {
     }
 
     private void startPAP() throws CustomExceptions {
+        routerInterface.info("PPPoE PAP is starting");
         this.PAP_questions_Identifier = (byte) random.nextInt();
         PAPPacket pap = new PAPPacket(PAPCodes.PasswordRequest, this.PAP_questions_Identifier, routerInterface.getPPPoEUser()[0], routerInterface.getPPPoEUser()[1]);
 
@@ -670,26 +678,26 @@ public class PPPTransaction {
     }
 
     private void startIPCP() throws CustomExceptions, UnknownHostException {
-
+        routerInterface.info("PPPoE IPCP is starting");
         IPCPOptions[] opt = new IPCPOptions[3];
 
         IPCPOptions ip = IPCPOptions.IPAddress;
         ip.setIP(InetAddress.getByName("0.0.0.0"));
         ip.setLength((byte) 6);
 
-        IPCPOptions primaryDNS = IPCPOptions.PrimaryDNSServerAddress;
-        primaryDNS.setIP(InetAddress.getByName("0.0.0.0"));
-        primaryDNS.setLength((byte) 6);
+        IPCPOptions priDNS = IPCPOptions.PrimaryDNSServerAddress;
+        priDNS.setIP(InetAddress.getByName("0.0.0.0"));
+        priDNS.setLength((byte) 6);
 
-        IPCPOptions secondaryDNS = IPCPOptions.SecondaryDNSServerAddress;
-        secondaryDNS.setIP(InetAddress.getByName("0.0.0.0"));
-        secondaryDNS.setLength((byte) 6);
+        IPCPOptions secDNS = IPCPOptions.SecondaryDNSServerAddress;
+        secDNS.setIP(InetAddress.getByName("0.0.0.0"));
+        secDNS.setLength((byte) 6);
 
         this.Client_Magic_Number = new MagicNumber(random.nextInt());
 
         opt[0] = ip;
-        opt[1] = primaryDNS;
-        opt[2] = secondaryDNS;
+        opt[1] = priDNS;
+        opt[2] = secDNS;
 
         IPCP_questions_Identifier = (byte) random.nextInt();
 
@@ -702,6 +710,7 @@ public class PPPTransaction {
     }
 
     private void startCCP() throws CustomExceptions {
+        routerInterface.info("PPPoE CCP is starting");
         this.CCP_questions_Identifier = (byte) random.nextInt();
         CCPOptions[] opt = new CCPOptions[0];
 
@@ -722,6 +731,8 @@ public class PPPTransaction {
     public void disconnect() throws CustomExceptions {
 
         if (isConnected) {
+            
+            routerInterface.info("Disconnecting");
             LCPOptions[] opt = new LCPOptions[1];
 
             LCPOptions magicNumber = LCPOptions.Magic_Number;

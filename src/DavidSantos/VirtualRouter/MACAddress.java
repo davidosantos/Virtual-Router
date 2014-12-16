@@ -23,8 +23,6 @@ public class MACAddress {
 
     }
 
-    public MACAddress(String mac) throws CustomExceptions {
-    }
 
     public byte[] getMac() {
         return mac;

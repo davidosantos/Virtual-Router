@@ -22,4 +22,6 @@ public interface RouterInterface {
     
     public void info(String info);
     
+    public String getPPPoEServiceName();
+    
 }

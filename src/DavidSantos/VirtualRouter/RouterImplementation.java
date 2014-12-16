@@ -16,6 +16,7 @@ public interface RouterImplementation {
     
     public void info(String info);
     
+    public String getPPPoEServiceName();
     
     
 }

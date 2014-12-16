@@ -412,4 +412,9 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
     public void info(String info) {
         this.jTextArea.append( info + "\n");
     }
+
+    @Override
+    public String getPPPoEServiceName() {
+        return "PPPoE Service Name";
+    }
 }

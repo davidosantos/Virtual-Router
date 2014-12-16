@@ -9,6 +9,8 @@ import DavidSantos.VirtualRouter.PPP.PPPTransaction;
 import DavidSantos.VirtualRouter.PPP.PPPCodes;
 import DavidSantos.VirtualRouter.PPP.PPPoEDiscovery;
 import DavidSantos.VirtualRouter.PPP.PPPoESession;
+import java.io.IOException;
+import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +37,8 @@ public class Router extends Thread implements RouterInterface {
     PPP ppp = new PPP();
     static Pcap WanPort;
     int InterfaceMTU;
+
+    MACAddress thisRouterMAC;
 
     private final RouterImplementation routerImpl;
 
@@ -80,10 +84,17 @@ public class Router extends Thread implements RouterInterface {
 //                                : device.getName());
 //        
         int snaplen = 64 * 1024;           // Capture all packets, no trucation  
-        int flags = Pcap.MODE_PROMISCUOUS; // capture packets  sent to me
-        int timeout = 0;           // 10 seconds in millis  
+        int flags = Pcap.MODE_PROMISCUOUS; // capture packets all packet
+        int timeout = 0;           // 0 seconds in millis  
 
         WanPort = Pcap.openLive("eth0", snaplen, flags, timeout, errbuf);
+        try {
+            thisRouterMAC = new MACAddress(alldevs.get(9).getHardwareAddress());
+        } catch (CustomExceptions ex) {
+            Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
+        }
 
         /**
          * *************************************************************************
@@ -104,12 +115,34 @@ public class Router extends Thread implements RouterInterface {
                         //throw new CustomExceptions("No Ethernet Header for packet: \n" + packet.toHexdump());
                     }
 
-                    EthernetHeader ethernetHeader = new EthernetHeader(new MACAddress(packet.getHeader(ethernet).destination()),
-                            new MACAddress(packet.getHeader(ethernet).source()), (short) packet.getHeader(ethernet).type());
-                    //System.out.println("Packet Type: " + ethernetHeader.getType().name());
+                    MACAddress destinationRouter = new MACAddress(packet.getHeader(ethernet).destination());
 
-                    switch (ethernetHeader.getType()) {
-                        case IPv4:
+                    if (thisRouterMAC.equals(destinationRouter)) { // only listen to packets sent to me
+
+                        EthernetHeader ethernetHeader = new EthernetHeader(thisRouterMAC,
+                                new MACAddress(packet.getHeader(ethernet).source()), (short) packet.getHeader(ethernet).type());
+
+                        switch (ethernetHeader.getType()) {
+                            case IPv4:
+
+                                if (pppTransaction.isIsConnected()) {
+                                    
+                                    packet.getHeader(ip).source(pppTransaction.getIp().getAddress());
+                                    
+                                    
+
+                                    byte[] data = new byte[packet.size()];
+                                    int j = 0;
+
+                                    for (int i = packet.getHeader(ip).getOffset(); i < packet.size(); i++, j++) {
+                                        data[j] = packet.getByte(i);
+                                    }
+
+                                    pppTransaction.sendEncapsulatedData(data);
+
+                                    //routerImpl.info("sending IP packet: " + packet.toDebugString());
+
+                                }
 
 //                            //Ethernet II, Src: a0:f3:c1:dd:c0:c4 
 //                            packet.getHeader(ethernet).destination(new byte[]{
@@ -128,91 +161,92 @@ public class Router extends Thread implements RouterInterface {
 //                                (byte) 0x21,
 //                                (byte) 0x5c,
 //                                (byte) 0xc6,});
-                            //packet.getHeader(ip).source(InetAddress.getByName("192.168.0.104").getAddress());
-                            //System.out.println("IP to: " + InetAddress.getByAddress(packet.getHeader(new Ip4()).destination()).toString());
-                            //System.out.println("IP from: " + InetAddress.getByAddress(packet.getHeader(new Ip4()).source()).toString());
-                            //pcap.sendPacket(packet.getByteArray(0, packet.size()));
-                            break;
-                        case Arp:
+                                //packet.getHeader(ip).source(InetAddress.getByName("192.168.0.104").getAddress());
+                                System.out.println("IP to: " + new MACAddress(packet.getHeader(ethernet).destination()).toString());
+                                System.out.println("IP from: " + new MACAddress(packet.getHeader(ethernet).source()).toString());
+                                //pcap.sendPacket(packet.getByteArray(0, packet.size()));
+                                break;
+                            case Arp:
 
-                            break;
-                        case PPP_Session_St:
-
-                            byte[] payloadSession = ethernet.getPayload();
+                                break;
+                            case PPP_Session_St:
+                                routerImpl.info("New Sesion Packet");
+                                byte[] payloadSession = ethernet.getPayload();
 
 //                            System.out.println("Erray: ");
 //                            int count_Session = 0;
 //                            for (byte tb : payloadSession) {
 //                                System.out.println(count_Session++ + ":" + Integer.toHexString(tb & 0xFF));
 //                            }
-                            //    1                   2                   3
-                            //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                            //   |  VER  | TYPE  |      CODE     |          SESSION_ID           |
-                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                            //   |            LENGTH             |           payload             ~
-                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                            // refer to https://tools.ietf.org/html/rfc2516
-                            if (payloadSession[0] == 0x11) { //0x11 is version and type 1 and 1
-                                PPPCodes type = PPPCodes.getTypeName(payloadSession[1] & 0xFF);
-                                type.setFrom(new MACAddress(packet.getHeader(ethernet).source()));
-                                short session = twoBytesToShort(payloadSession[2], payloadSession[3]);
-                                short length = twoBytesToShort(payloadSession[4], payloadSession[5]);
-                                byte[] payloadPPPoE = new byte[length];
-                                int i = 6;
-                                for (int j = 0; j < length; j++) {
-                                    payloadPPPoE[j] = (byte) (payloadSession[i++] & 0xFF);
+                                //    1                   2                   3
+                                //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+                                //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                //   |  VER  | TYPE  |      CODE     |          SESSION_ID           |
+                                //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                //   |            LENGTH             |           payload             ~
+                                //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                // refer to https://tools.ietf.org/html/rfc2516
+                                if (payloadSession[0] == 0x11) { //0x11 is version and type 1 and 1
+                                    PPPCodes type = PPPCodes.getTypeName(payloadSession[1] & 0xFF);
+                                    type.setFrom(new MACAddress(packet.getHeader(ethernet).source()));
+                                    short session = twoBytesToShort(payloadSession[2], payloadSession[3]);
+                                    short length = twoBytesToShort(payloadSession[4], payloadSession[5]);
+                                    byte[] payloadPPPoE = new byte[length];
+                                    int i = 6;
+                                    for (int j = 0; j < length; j++) {
+                                        payloadPPPoE[j] = (byte) (payloadSession[i++] & 0xFF);
+                                    }
+                                    pppTransaction.onReceive_Session_St(new PPPoESession(type, session, length, payloadPPPoE, new MACAddress(ethernet.source())));
+
+                                } else {
+                                    throw new CustomExceptions("PPP Packet not supported, the only version supported is 0x11, version received is: 0x"
+                                            + Integer.toHexString(payloadSession[0]));
                                 }
-                                pppTransaction.onReceive_Session_St(new PPPoESession(type, session, length, payloadPPPoE, new MACAddress(ethernet.source())));
 
-                            } else {
-                                throw new CustomExceptions("PPP Packet not supported, the only version supported is 0x11, version received is: 0x"
-                                        + Integer.toHexString(payloadSession[0]));
-                            }
+                                break;
 
-                            break;
+                            case PPP_Discovery_St:
 
-                        case PPP_Discovery_St:
-
-                            byte[] payload = ethernet.getPayload();
+                                byte[] payload = ethernet.getPayload();
 
 //                            System.out.println("Erray: ");
 //                            int count = 0;
 //                            for (byte tb : payload) {
 //                                System.out.println(count++ + ":" + Integer.toHexString(tb & 0xFF));
 //                            }
-                            //    1                   2                   3
-                            //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                            //   |  VER  | TYPE  |      CODE     |          SESSION_ID           |
-                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                            //   |            LENGTH             |           payload             ~
-                            //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                            // refer to https://tools.ietf.org/html/rfc2516
-                            if (payload[0] == 0x11) { //0x11 is version and type 1 and 1
-                                PPPCodes type = PPPCodes.getTypeName(payload[1] & 0xFF);  //1 is type                              
-                                short session = twoBytesToShort(payload[2], payload[3]); //2, 3 session
-                                short length = twoBytesToShort(payload[4], payload[5]);
-                                byte[] payloadPPPoE = new byte[length];
-                                int i = 6;
-                                for (int j = 0; j < length; j++) {
-                                    payloadPPPoE[j] = (byte) (payload[i++] & 0xFF);
+                                //    1                   2                   3
+                                //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+                                //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                //   |  VER  | TYPE  |      CODE     |          SESSION_ID           |
+                                //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                //   |            LENGTH             |           payload             ~
+                                //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                // refer to https://tools.ietf.org/html/rfc2516
+                                if (payload[0] == 0x11) { //0x11 is version and type 1 and 1
+                                    PPPCodes type = PPPCodes.getTypeName(payload[1] & 0xFF);  //1 is type                              
+                                    short session = twoBytesToShort(payload[2], payload[3]); //2, 3 session
+                                    short length = twoBytesToShort(payload[4], payload[5]);
+                                    byte[] payloadPPPoE = new byte[length];
+                                    int i = 6;
+                                    for (int j = 0; j < length; j++) {
+                                        payloadPPPoE[j] = (byte) (payload[i++] & 0xFF);
+                                    }
+
+                                    type.setFrom(new MACAddress(packet.getHeader(ethernet).source()));
+                                    pppTransaction.onReceive_Discovery_St(new PPPoEDiscovery(type, session, length, payloadPPPoE));
+
+                                } else {
+                                    throw new CustomExceptions("PPP Packet not supported, the only version supported is 0x11, version received is: 0x"
+                                            + Integer.toHexString(payload[0]));
                                 }
+                                break;
+                            case IPv6:
+                                break;
 
-                                type.setFrom(new MACAddress(packet.getHeader(ethernet).source()));
-                                pppTransaction.onReceive_Discovery_St(new PPPoEDiscovery(type, session, length, payloadPPPoE));
+                            default:
+                                throw new AssertionError(ethernetHeader.getType().name());
 
-                            } else {
-                                throw new CustomExceptions("PPP Packet not supported, the only version supported is 0x11, version received is: 0x"
-                                        + Integer.toHexString(payload[0]));
-                            }
-                            break;
-                        case IPv6:
-                            break;
-
-                        default:
-                            throw new AssertionError(ethernetHeader.getType().name());
-
+                        }
                     }
 
                 } catch (CustomExceptions ex) {
@@ -256,8 +290,8 @@ public class Router extends Thread implements RouterInterface {
     public RouterInterface getRouter() {
         return this;
     }
-    
-    public void disconnect(){
+
+    public void disconnect() {
         try {
             pppTransaction.disconnect();
         } catch (CustomExceptions ex) {
@@ -296,7 +330,6 @@ public class Router extends Thread implements RouterInterface {
     public void startPPPoEService() {
         try {
 
-            
             pppTransaction.start();
 
         } catch (CustomExceptions ex) {
@@ -347,6 +380,12 @@ public class Router extends Thread implements RouterInterface {
     @Override
     public void info(String info) {
         routerImpl.info(info);
+    }
+
+    @Override
+    public String getPPPoEServiceName() {
+
+        return routerImpl.getPPPoEServiceName();
     }
 
 }

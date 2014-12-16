@@ -38,7 +38,7 @@ public class Router extends Thread implements RouterInterface {
     static Pcap WanPort;
     int InterfaceMTU;
 
-    MACAddress thisRouterMAC;
+    MACAddress thisRouterWanMAC;
 
     private final RouterImplementation routerImpl;
 
@@ -48,6 +48,13 @@ public class Router extends Thread implements RouterInterface {
         this.routerImpl = routerImpl;
         pppTransaction = new PPPTransaction(this);
         this.setName("Router");
+        try {
+            thisRouterWanMAC = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2B, (byte) 0xBB, (byte) 0xEE, (byte) 0x88, (byte) 0x44});
+        } catch (CustomExceptions ex) {
+            Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+        
     }
 
     @Override
@@ -87,14 +94,8 @@ public class Router extends Thread implements RouterInterface {
         int flags = Pcap.MODE_PROMISCUOUS; // capture packets all packet
         int timeout = 0;           // 0 seconds in millis  
 
-        WanPort = Pcap.openLive(alldevs.get(14).getName(), snaplen, flags, timeout, errbuf);
-        try {
-            thisRouterMAC = new MACAddress(alldevs.get(14).getHardwareAddress());
-        } catch (CustomExceptions ex) {
-            Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
-            Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        WanPort = Pcap.openLive(alldevs.get(9).getName(), snaplen, flags, timeout, errbuf);
+       
 
         /**
          * *************************************************************************
@@ -117,9 +118,9 @@ public class Router extends Thread implements RouterInterface {
 
                     MACAddress destinationRouter = new MACAddress(packet.getHeader(ethernet).destination());
 
-                    if (thisRouterMAC.equals(destinationRouter)) { // only listen to packets sent to me
+                    if (thisRouterWanMAC.equals(destinationRouter)) { // only listen to packets sent to me
 
-                        EthernetHeader ethernetHeader = new EthernetHeader(thisRouterMAC,
+                        EthernetHeader ethernetHeader = new EthernetHeader(thisRouterWanMAC,
                                 new MACAddress(packet.getHeader(ethernet).source()), (short) packet.getHeader(ethernet).type());
 
                         switch (ethernetHeader.getType()) {
@@ -140,7 +141,7 @@ public class Router extends Thread implements RouterInterface {
 
                                     pppTransaction.sendEncapsulatedData(data);
 
-                                    //routerImpl.info("sending IP packet: " + packet.toDebugString());
+                                    routerImpl.info("sending IP packet: ");
 
                                 }
 
@@ -170,7 +171,7 @@ public class Router extends Thread implements RouterInterface {
 
                                 break;
                             case PPP_Session_St:
-                                routerImpl.info("New Sesion Packet");
+                                
                                 byte[] payloadSession = ethernet.getPayload();
 
 //                            System.out.println("Erray: ");
@@ -306,13 +307,13 @@ public class Router extends Thread implements RouterInterface {
         //MACAddress source = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2b, (byte) 0xcb, (byte) 0xee, (byte) 0x4e, (byte) 0x39});
         //78:2B:CB:EE:4E:39 pc do serviço
         //00:1E:C9:23:0A:04 pc de casa
-        byte[] toSend = new byte[dest.mac.length + thisRouterMAC.mac.length + data.length + 2];// +2 for type field
+        byte[] toSend = new byte[dest.mac.length + thisRouterWanMAC.mac.length + data.length + 2];// +2 for type field
         int byteCount = 0;
         for (byte bt : dest.mac) {
             toSend[byteCount++] = bt;
         }
 
-        for (byte bt : thisRouterMAC.mac) {
+        for (byte bt : thisRouterWanMAC.mac) {
             toSend[byteCount++] = bt;
         }
 
@@ -344,13 +345,13 @@ public class Router extends Thread implements RouterInterface {
         //MACAddress source = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2B, (byte) 0xCB, (byte) 0xEE, (byte) 0x4E, (byte) 0x39});
        // MACAddress source = new MACAddress(new byte[]{(byte) 0x00, (byte) 0x1e, (byte) 0xc9, (byte) 0x23, (byte) 0x0a, (byte) 0x04});
 
-        byte[] toSend = new byte[to.mac.length + thisRouterMAC.mac.length + data.length + 2];// +2 for type field
+        byte[] toSend = new byte[to.mac.length + thisRouterWanMAC.mac.length + data.length + 2];// +2 for type field
         int byteCount = 0;
         for (byte bt : to.mac) {
             toSend[byteCount++] = bt;
         }
 
-        for (byte bt : thisRouterMAC.mac) {
+        for (byte bt : thisRouterWanMAC.mac) {
             toSend[byteCount++] = bt;
         }
 
@@ -371,8 +372,13 @@ public class Router extends Thread implements RouterInterface {
 
     public void sendBytes() {
         try {
-            pppTransaction.sendEncapsulatedData(new byte[]{(byte) 0x45, (byte) 0x00, (byte) 0x00, (byte) 0x33, (byte) 0xa4, (byte) 0xb6, (byte) 0x40, (byte) 0x00, (byte) 0x40, (byte) 0x11, (byte) 0xee, (byte) 0x06, (byte) 0xc0, (byte) 0xa8, (byte) 0x00, (byte) 0x12, (byte) 0xac, (byte) 0x1b, (byte) 0x3b, (byte) 0x27, (byte) 0xe1, (byte) 0xe7, (byte) 0x00, (byte) 0x35, (byte) 0x00, (byte) 0x1f, (byte) 0xac, (byte) 0x2f, (byte) 0xeb, (byte) 0x29, (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x05, (byte) 0x6c, (byte) 0x6f, (byte) 0x63, (byte) 0x61, (byte) 0x6c, (byte) 0x00, (byte) 0x00, (byte) 0x06, (byte) 0x00, (byte) 0x01});
-        } catch (CustomExceptions ex) {
+            
+   pppTransaction.sendEncapsulatedData(new byte[]{(byte) 0x45, (byte) 0x00,
+   (byte) 0x00, (byte) 0x30, (byte) 0xb1, (byte) 0x7b, (byte) 0x40, (byte) 0x00, (byte) 0x80, (byte) 0x06, (byte) 0x3d, (byte) 0x39, (byte) 0xac, (byte) 0x1b, (byte) 0x3b, (byte) 90, (byte) 0xad, (byte) 0xc2,
+   (byte) 0x76, (byte) 0xa2, (byte) 0x06, (byte) 0xe1, (byte) 0x00, (byte) 0x50, (byte) 0x20, (byte) 0x44, (byte) 0x65, (byte) 0xae, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x70, (byte) 0x02,
+   (byte) 0xfa, (byte) 0xf0, (byte) 0xee, (byte) 0xf7, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x04, (byte) 0x05, (byte) 0xb4, (byte) 0x01, (byte) 0x01, (byte) 0x04, (byte) 0x02});
+            
+                    } catch (CustomExceptions ex) {
             Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
         }
     }

@@ -7,6 +7,7 @@ package DavidSantos.VirtualRouter.PPP;
 import DavidSantos.VirtualRouter.EthernetTypes;
 import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
 import DavidSantos.VirtualRouter.MACAddress;
+import DavidSantos.VirtualRouter.NAT.NATTransaction;
 import DavidSantos.VirtualRouter.PPP.CCP.CCPCodes;
 import DavidSantos.VirtualRouter.PPP.CCP.CCPOptions;
 import DavidSantos.VirtualRouter.PPP.CCP.CCPPacket;
@@ -27,6 +28,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import org.jnetpcap.packet.PcapPacket;
+import org.jnetpcap.protocol.lan.Ethernet;
+import org.jnetpcap.protocol.wan.PPP;
 
 /**
  *
@@ -80,7 +84,7 @@ public class PPPTransaction {
         LCP_supportedOpitions.add(LCPOptions.Maximum_Receive_Unit);
         LCP_supportedOpitions.add(LCPOptions.Magic_Number);
         LCP_supportedOpitions.add(LCPOptions.Authentication_Protocol);
-       // LCP_supportedOpitions.add(LCPOptions.Multilink_EndPoint);
+        // LCP_supportedOpitions.add(LCPOptions.Multilink_EndPoint);
 
         AuthType = AuthenticationType.PAP;
 
@@ -512,6 +516,11 @@ public class PPPTransaction {
                     }
 
                     break;
+
+                case IPv4:
+                    
+                    NATTransaction.newIncoming(session.getPcapPayload());
+                    break;
             }
         } else {
             throw new CustomExceptions("PPPoE Error: Received session packet when there was no stabilished session.");
@@ -565,6 +574,8 @@ public class PPPTransaction {
 
                 routerInterface.sendWanData(EthernetTypes.PPP_Discovery_St, this.connectedServer, discoveryRequest.getBytes());
                 this.waitingFor = WaitingFor.Ack;
+                
+                routerInterface.info("Waiting for ack");
 
             } else {
                 throw new CustomExceptions("I was waitiong for a PADO Packet, But I received: " + discovery.getCode().name() + " From " + discovery.getCode().getFrom().toString());
@@ -605,7 +616,7 @@ public class PPPTransaction {
                     this.SessionStabilished = discovery.getSession_Id();
                     routerInterface.info("Stabilished Session: 0x" + Integer.toHexString(SessionStabilished));
                     waitingFor = WaitingFor.Everything;
-
+                    routerInterface.info("Waiting for all packets.");
                     startLCP();
 
                 }
@@ -651,6 +662,7 @@ public class PPPTransaction {
 
             routerInterface.sendWanEthernetBroadcast(EthernetTypes.PPP_Discovery_St, discoveryReply.getBytes());
             this.waitingFor = WaitingFor.Offer;
+            routerInterface.info("Waiting for an offer...");
         } else {
             throw new CustomExceptions("Router is already connected");
         }
@@ -753,7 +765,7 @@ public class PPPTransaction {
 
             opt[0] = magicNumber;
             LCP_questions_Identifier = (byte) random.nextInt();
-            
+
             LCPPacket packt = new LCPPacket(LCPCodes.Terminate_Rq, LCP_questions_Identifier, opt);
 
             PPPoESession session = new PPPoESession(PPPProtocol_Ids.LCP, PPPCodes.Session_Data, SessionStabilished, packt);
@@ -767,7 +779,7 @@ public class PPPTransaction {
         }
     }
 
-    public boolean isIsConnected() {
+    public boolean isConnected() {
         return isConnected;
     }
 

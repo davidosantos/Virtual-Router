@@ -17,10 +17,14 @@ import DavidSantos.VirtualRouter.PPP.LCP.LCPOptions;
 import DavidSantos.VirtualRouter.PPP.LCP.LCPPacket;
 import DavidSantos.VirtualRouter.PPP.PAP.PAPCodes;
 import DavidSantos.VirtualRouter.PPP.PAP.PAPPacket;
+import com.sun.org.apache.xalan.internal.xsltc.runtime.BasisLibrary;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import org.jnetpcap.packet.PcapPacket;
+import org.jnetpcap.protocol.JProtocol;
 
 /**
  *
@@ -38,10 +42,11 @@ public class PPPoESession {
     private PAPPacket PAPPayload;
     private IPCPPacket IPCPPayload;
     private CCPPacket CCPPayload;
+    private PcapPacket PcapPayload;
 
     private byte[] BytesPayload;
 
-    public PPPoESession(PPPCodes code, short session_Id, short length, byte[] payload, MACAddress from) throws CustomExceptions, UnknownHostException {
+    public PPPoESession(PPPCodes code, short session_Id, short length, byte[] payload, MACAddress from, PcapPacket packet) throws CustomExceptions, UnknownHostException {
 
         this.code = code;
         this.session_Id = session_Id;
@@ -233,6 +238,36 @@ public class PPPoESession {
 
                 break;
 
+            case IPv4:
+
+                byte[] pureIP = new byte[payload.length + 12];
+
+                int indexer = 0;
+
+                for (byte dst : packet.getByteArray(0, 12)) {  //copy mac address
+                    pureIP[indexer++] = dst;
+                }
+                //type ip
+                pureIP[indexer++] = 0x08;
+                pureIP[indexer++] = 0x00;
+
+                for (int i = 2; i < payload.length; i++, indexer++) {
+                    pureIP[indexer] = payload[i];
+                }
+
+                PcapPacket p = new PcapPacket(packet);
+                //System.out.println("before " + p.toString());
+
+                p.setByteArray(0, pureIP);
+                p.scan(JProtocol.ETHERNET_ID);
+                //System.out.println("after " + p.toString());
+
+                this.PcapPayload = p;
+
+                this.protocol = PPPProtocol_Ids.IPv4;
+
+                break;
+
             default:
                 throw new CustomExceptions("Protocol 0x" + Integer.toHexString((payload[0] << 8 | payload[1]) & 0xFFFF) + " has not yet been implemented");
 
@@ -352,10 +387,10 @@ public class PPPoESession {
 
         switch (protocol) {
             case IPv4:
-                
-               for(byte bt : this.BytesPayload){
-                   bytes.add(bt);
-               } 
+
+                for (byte bt : this.BytesPayload) {
+                    bytes.add(bt);
+                }
 
                 break;
             case LCP:
@@ -509,6 +544,14 @@ public class PPPoESession {
 
     public void setCCPPayload(CCPPacket CCPPayload) {
         this.CCPPayload = CCPPayload;
+    }
+
+    public PcapPacket getPcapPayload() {
+        return PcapPayload;
+    }
+
+    public void setPcapPayload(PcapPacket PcapPayload) {
+        this.PcapPayload = PcapPayload;
     }
 
 }

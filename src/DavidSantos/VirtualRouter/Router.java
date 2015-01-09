@@ -5,13 +5,15 @@
 package DavidSantos.VirtualRouter;
 
 import DavidSantos.VirtualRouter.Exceptions.CustomExceptions;
+import DavidSantos.VirtualRouter.NAT.NATPacket;
+import DavidSantos.VirtualRouter.NAT.NATTransaction;
 import DavidSantos.VirtualRouter.PPP.PPPTransaction;
 import DavidSantos.VirtualRouter.PPP.PPPCodes;
 import DavidSantos.VirtualRouter.PPP.PPPoEDiscovery;
 import DavidSantos.VirtualRouter.PPP.PPPoESession;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -23,6 +25,7 @@ import org.jnetpcap.packet.PcapPacketHandler;
 import org.jnetpcap.protocol.lan.Ethernet;
 import org.jnetpcap.protocol.network.Ip4;
 import org.jnetpcap.protocol.tcpip.Tcp;
+import org.jnetpcap.protocol.tcpip.Udp;
 import org.jnetpcap.protocol.wan.PPP;
 
 /**
@@ -33,10 +36,13 @@ public class Router extends Thread implements RouterInterface {
 
     Ip4 ip = new Ip4();
     Tcp tcp = new Tcp();
+    Udp udp = new Udp();
     Ethernet ethernet = new Ethernet();
     PPP ppp = new PPP();
     static Pcap WanPort;
     int InterfaceMTU;
+
+    private OperatingMode opMode;
 
     MACAddress thisRouterWanMAC;
 
@@ -44,17 +50,21 @@ public class Router extends Thread implements RouterInterface {
 
     PPPTransaction pppTransaction;
 
+    NATTransaction Nat;
+
     public Router(RouterImplementation routerImpl) {
         this.routerImpl = routerImpl;
         pppTransaction = new PPPTransaction(this);
+        Nat = new NATTransaction(this);
         this.setName("Router");
         try {
             thisRouterWanMAC = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2B, (byte) 0xBB, (byte) 0xEE, (byte) 0x88, (byte) 0x44});
         } catch (CustomExceptions ex) {
             Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
-        
+
+        this.opMode = OperatingMode.SingleInterface;
+
     }
 
     @Override
@@ -95,14 +105,9 @@ public class Router extends Thread implements RouterInterface {
         int timeout = 0;           // 0 seconds in millis  
 
         WanPort = Pcap.openLive(alldevs.get(9).getName(), snaplen, flags, timeout, errbuf);
-       
 
-        /**
-         * *************************************************************************
-         * Second we open up the selected device
-         * ************************************************************************
-         */
-        PcapPacketHandler<String> jpacketHandler = new PcapPacketHandler<String>() {
+        PcapPacketHandler<String> WanHandler;
+        WanHandler = new PcapPacketHandler<String>() {
 
             @Override
             public void nextPacket(PcapPacket packet, String user) {
@@ -125,60 +130,61 @@ public class Router extends Thread implements RouterInterface {
 
                         switch (ethernetHeader.getType()) {
                             case IPv4:
+                                if (opMode == OperatingMode.SingleInterface) {
+                                    if (pppTransaction.isConnected()) {
+                                        //NAT must know about this, so when packet returns
+                                        if (packet.hasHeader(udp) || packet.hasHeader(tcp)) {
 
-                                if (pppTransaction.isIsConnected()) {
-                                    
-                                    packet.getHeader(ip).source(pppTransaction.getIp().getAddress());
-                                    
-                                    
+                                            if (packet.hasHeader(udp)) {
+                                                NATTransaction.addTemporaryNat(new NATPacket(
+                                                        InetAddress.getByAddress(packet.getHeader(ip).source()),
+                                                        InetAddress.getByAddress(packet.getHeader(ip).destination()),
+                                                        (short) packet.getHeader(udp).source(),
+                                                        (short) packet.getHeader(udp).destination(),
+                                                        new MACAddress(packet.getHeader(ethernet).source()),
+                                                        new MACAddress(packet.getHeader(ethernet).destination())));
 
-                                    byte[] data = new byte[packet.size()];
-                                    int j = 0;
+                                            } else {
 
-                                    for (int i = packet.getHeader(ip).getOffset(); i < packet.size(); i++, j++) {
-                                        data[j] = packet.getByte(i);
+                                                NATTransaction.addTemporaryNat(new NATPacket(
+                                                        InetAddress.getByAddress(packet.getHeader(ip).source()),
+                                                        InetAddress.getByAddress(packet.getHeader(ip).destination()),
+                                                        (short) packet.getHeader(tcp).source(),
+                                                        (short) packet.getHeader(tcp).destination(),
+                                                        new MACAddress(packet.getHeader(ethernet).source()),
+                                                        new MACAddress(packet.getHeader(ethernet).destination())));
+
+                                            }
+
+                                        } else {
+                                            throw new CustomExceptions("Packet has no tcp or udp header");
+                                        }
+
+                                        packet.getHeader(ip).source(pppTransaction.getIp().getAddress());
+                                        //changing a packet requires to recalculate the checksum
+                                        recalcuteChecksum(packet);
+
+                                        byte[] data = new byte[packet.size() - packet.getHeader(ethernet).getLength()];
+                                        int j = 0;
+                                        //index i = without ethernet header
+                                        for (int i = packet.getHeader(ip).getOffset(); i < packet.size(); i++, j++) {
+                                            data[j] = packet.getByte(i);
+                                        }
+
+                                        pppTransaction.sendEncapsulatedData(data);
+
+                                        routerImpl.info("sending IP packet: ");
+
                                     }
-
-                                    pppTransaction.sendEncapsulatedData(data);
-
-                                    routerImpl.info("sending IP packet: ");
-
                                 }
 
-//                            //Ethernet II, Src: a0:f3:c1:dd:c0:c4 
-//                            packet.getHeader(ethernet).destination(new byte[]{
-//                                (byte) 0xa0,
-//                                (byte) 0xf3,
-//                                (byte) 0xc1,
-//                                (byte) 0xdd,
-//                                (byte) 0xc0,
-//                                (byte) 0xc4,});
-//
-//                            //00:1F:3C:21:5C:C6
-//                            packet.getHeader(ethernet).source(new byte[]{
-//                                (byte) 0x00,
-//                                (byte) 0x1f,
-//                                (byte) 0x3c,
-//                                (byte) 0x21,
-//                                (byte) 0x5c,
-//                                (byte) 0xc6,});
-                                //packet.getHeader(ip).source(InetAddress.getByName("192.168.0.104").getAddress());
-                                System.out.println("IP to: " + new MACAddress(packet.getHeader(ethernet).destination()).toString());
-                                System.out.println("IP from: " + new MACAddress(packet.getHeader(ethernet).source()).toString());
-                                //pcap.sendPacket(packet.getByteArray(0, packet.size()));
                                 break;
                             case Arp:
 
                                 break;
                             case PPP_Session_St:
-                                
-                                byte[] payloadSession = ethernet.getPayload();
 
-//                            System.out.println("Erray: ");
-//                            int count_Session = 0;
-//                            for (byte tb : payloadSession) {
-//                                System.out.println(count_Session++ + ":" + Integer.toHexString(tb & 0xFF));
-//                            }
+                                byte[] payloadSession = ethernet.getPayload();
                                 //    1                   2                   3
                                 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
                                 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -197,7 +203,8 @@ public class Router extends Thread implements RouterInterface {
                                     for (int j = 0; j < length; j++) {
                                         payloadPPPoE[j] = (byte) (payloadSession[i++] & 0xFF);
                                     }
-                                    pppTransaction.onReceive_Session_St(new PPPoESession(type, session, length, payloadPPPoE, new MACAddress(ethernet.source())));
+
+                                    pppTransaction.onReceive_Session_St(new PPPoESession(type, session, length, payloadPPPoE, new MACAddress(ethernet.source()), packet));
 
                                 } else {
                                     throw new CustomExceptions("PPP Packet not supported, the only version supported is 0x11, version received is: 0x"
@@ -209,12 +216,6 @@ public class Router extends Thread implements RouterInterface {
                             case PPP_Discovery_St:
 
                                 byte[] payload = ethernet.getPayload();
-
-//                            System.out.println("Erray: ");
-//                            int count = 0;
-//                            for (byte tb : payload) {
-//                                System.out.println(count++ + ":" + Integer.toHexString(tb & 0xFF));
-//                            }
                                 //    1                   2                   3
                                 //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
                                 //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -270,7 +271,7 @@ public class Router extends Thread implements RouterInterface {
             return;
         }
 
-        WanPort.loop(0, jpacketHandler, "");
+        WanPort.loop(0, WanHandler, "");
 
         WanPort.close();
 
@@ -343,7 +344,7 @@ public class Router extends Thread implements RouterInterface {
     public void sendWanData(EthernetTypes type, MACAddress to, byte[] data) throws CustomExceptions {
         // be ware of MTU
         //MACAddress source = new MACAddress(new byte[]{(byte) 0x78, (byte) 0x2B, (byte) 0xCB, (byte) 0xEE, (byte) 0x4E, (byte) 0x39});
-       // MACAddress source = new MACAddress(new byte[]{(byte) 0x00, (byte) 0x1e, (byte) 0xc9, (byte) 0x23, (byte) 0x0a, (byte) 0x04});
+        // MACAddress source = new MACAddress(new byte[]{(byte) 0x00, (byte) 0x1e, (byte) 0xc9, (byte) 0x23, (byte) 0x0a, (byte) 0x04});
 
         byte[] toSend = new byte[to.mac.length + thisRouterWanMAC.mac.length + data.length + 2];// +2 for type field
         int byteCount = 0;
@@ -366,21 +367,42 @@ public class Router extends Thread implements RouterInterface {
     }
 
     @Override
-    public String[] getPPPoEUser() {
-        return routerImpl.getPPPoEUser();
+    public void sendLanData(PcapPacket data) {
+
+        data.getHeader(ethernet).source(thisRouterWanMAC.mac);
+
+        recalcuteChecksum(data);
+//        byte[] dataBytes = new byte[data.size()];
+
+//        int indexer = 0;
+//
+//        for (byte bt : data.getHeader(ethernet).getByteArray(data.getHeader(ethernet).getOffset(), data.getHeader(ethernet).getLength())) {
+//            dataBytes[indexer++] = bt;
+//        }
+//
+//        if (data.hasHeader(ip)) {
+//            for (byte bt : data.getHeader(ip).getByteArray(data.getHeader(ip).getOffset(), data.getHeader(ip).getLength())) {
+//                dataBytes[indexer++] = bt;
+//            }
+//        } else if (data.hasHeader(tcp)) {
+//            for (byte bt : data.getHeader(tcp).getByteArray(data.getHeader(tcp).getOffset(), data.getHeader(tcp).getLength())) {
+//                dataBytes[indexer++] = bt;
+//            }
+//        }
+//        int j = 0;
+//        //index i = without ethernet header
+//        for (int i = data.getHeader(ip).getOffset(); i < data.size(); i++, j++) {
+//            dataBytes[j] = data.getByte(i);
+//        }
+        ByteBuffer buf = ByteBuffer.wrap(data.getByteArray(0, data.size()));
+        if (opMode == OperatingMode.SingleInterface) {
+            WanPort.sendPacket(buf); // for now send through wan for tests
+        }
     }
 
-    public void sendBytes() {
-        try {
-            
-   pppTransaction.sendEncapsulatedData(new byte[]{(byte) 0x45, (byte) 0x00,
-   (byte) 0x00, (byte) 0x30, (byte) 0xb1, (byte) 0x7b, (byte) 0x40, (byte) 0x00, (byte) 0x80, (byte) 0x06, (byte) 0x3d, (byte) 0x39, (byte) 0xac, (byte) 0x1b, (byte) 0x3b, (byte) 90, (byte) 0xad, (byte) 0xc2,
-   (byte) 0x76, (byte) 0xa2, (byte) 0x06, (byte) 0xe1, (byte) 0x00, (byte) 0x50, (byte) 0x20, (byte) 0x44, (byte) 0x65, (byte) 0xae, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x70, (byte) 0x02,
-   (byte) 0xfa, (byte) 0xf0, (byte) 0xee, (byte) 0xf7, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x04, (byte) 0x05, (byte) 0xb4, (byte) 0x01, (byte) 0x01, (byte) 0x04, (byte) 0x02});
-            
-                    } catch (CustomExceptions ex) {
-            Logger.getLogger(Router.class.getName()).log(Level.SEVERE, null, ex);
-        }
+    @Override
+    public String[] getPPPoEUser() {
+        return routerImpl.getPPPoEUser();
     }
 
     @Override
@@ -392,6 +414,36 @@ public class Router extends Thread implements RouterInterface {
     public String getPPPoEServiceName() {
 
         return routerImpl.getPPPoEServiceName();
+    }
+
+    private PcapPacket recalcuteChecksum(PcapPacket packet) {
+        
+        if (packet.hasHeader(ip)) {
+            packet.getHeader(ip).checksum(packet.getHeader(ip).calculateChecksum());
+        }
+        if (packet.hasHeader(udp)) {
+            //6 -> set manually the checksum, worked!
+            packet.getHeader(udp).setShort(6, (short) packet.getHeader(udp).calculateChecksum());
+        }
+        if (packet.hasHeader(tcp)) {
+
+            packet.getHeader(tcp).checksum(packet.getHeader(tcp).calculateChecksum());
+        }
+        return packet;
+    }
+
+    public OperatingMode getOpMode() {
+        return opMode;
+    }
+
+    public void setOpMode(OperatingMode opMode) {
+        this.opMode = opMode;
+    }
+
+    enum OperatingMode {
+
+        SingleInterface,
+        MultipleInterfaces;
     }
 
 }

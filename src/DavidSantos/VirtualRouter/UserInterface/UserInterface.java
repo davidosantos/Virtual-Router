@@ -98,6 +98,10 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
             }
         });
 
+        jTextField_user.setText("user");
+
+        jTextField_Password.setText("geral#33");
+
         jLabel1.setText("User Name");
 
         jLabel2.setText("Password");
@@ -172,7 +176,7 @@ public class UserInterface extends javax.swing.JFrame implements DHCPImplementat
     }//GEN-LAST:event_jButton_PPPoEActionPerformed
 
     private void jButton_pingActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton_pingActionPerformed
-        router.sendBytes();
+        
     }//GEN-LAST:event_jButton_pingActionPerformed
 
     private void jButton_DisconnectActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton_DisconnectActionPerformed

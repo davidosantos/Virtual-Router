@@ -114,8 +114,14 @@
       </Events>
     </Component>
     <Component class="javax.swing.JTextField" name="jTextField_user">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="user"/>
+      </Properties>
     </Component>
     <Component class="javax.swing.JTextField" name="jTextField_Password">
+      <Properties>
+        <Property name="text" type="java.lang.String" value="geral#33"/>
+      </Properties>
     </Component>
     <Component class="javax.swing.JLabel" name="jLabel1">
       <Properties>
